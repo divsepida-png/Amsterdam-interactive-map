@@ -1,9 +1,18 @@
-# Amsterdam Interactive Map — live hosting status
+# Amsterdam Interactive Map — current published build
 
-Status: verified
+Status: published
 
-HTTPS URL: https://raw.githack.com/divsepida-png/Amsterdam-interactive-map/e69079764f26f683ac0bb89c30cfa88657f7a24d/index.html
+Edition: high-contrast MapLibre vector V2
 
-Verified content: map title and live GPS tracking code
+HTTPS URL: https://raw.githack.com/divsepida-png/Amsterdam-interactive-map/dc1b0968ad4cdc6af9b0d3538c3ad9eb9477577a/index.html
 
-Checked: 2026-07-26 20:06:22 UTC
+Repository integrity checks:
+
+- immutable bootstrap committed
+- seven compressed application parts present in the same immutable commit
+- bootstrap validates `VECTOR V2`, `maplibregl.Map` and live `watchPosition()` tracking before launch
+- reconstructed application source passed local gzip round-trip and JavaScript syntax validation
+
+Published: 2026-07-26
+
+Site commit: dc1b0968ad4cdc6af9b0d3538c3ad9eb9477577a
