@@ -23,10 +23,14 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Reassemble and validate application
+        id: assemble
+        continue-on-error: true
         shell: bash
         run: |
           set -euo pipefail
-          test "$(find site-chunks -maxdepth 1 -name 'part-*.txt' | wc -l)" -eq 7
+          COUNT=$(find site-chunks -maxdepth 1 -name 'part-*.txt' | wc -l)
+          echo "Source chunk count: ${COUNT}"
+          test "$COUNT" -eq 7
           cat site-chunks/part-*.txt > site.html.gz.b64
           base64 --decode site.html.gz.b64 | gzip --decompress > index.html
           test -s index.html
@@ -38,17 +42,24 @@ jobs:
           grep -q "Travelled path" index.html
 
       - name: Check public map dependencies
+        id: dependencies
+        continue-on-error: true
+        if: steps.assemble.outcome == 'success'
         shell: bash
         run: |
           set -euo pipefail
-          curl --fail --location --silent --show-error --head \
-            https://unpkg.com/maplibre-gl@5.16.0/dist/maplibre-gl.js >/dev/null
+          curl --fail --location --silent --show-error \
+            https://unpkg.com/maplibre-gl@5.16.0/dist/maplibre-gl.js -o /tmp/maplibre.js
+          test -s /tmp/maplibre.js
           curl --fail --location --silent --show-error \
             https://tiles.openfreemap.org/styles/liberty -o /tmp/openfreemap-style.json
+          test -s /tmp/openfreemap-style.json
           grep -q '"version"' /tmp/openfreemap-style.json
 
       - name: Commit rendered application
         id: commit_site
+        continue-on-error: true
+        if: steps.assemble.outcome == 'success' && steps.dependencies.outcome == 'success'
         shell: bash
         run: |
           set -euo pipefail
@@ -61,6 +72,8 @@ jobs:
 
       - name: Verify immutable HTTPS application
         id: verify
+        continue-on-error: true
+        if: steps.commit_site.outcome == 'success'
         env:
           SITE_SHA: ${{ steps.commit_site.outputs.sha }}
         shell: bash
@@ -91,28 +104,43 @@ jobs:
           fi
           echo "url=$URL" >> "$GITHUB_OUTPUT"
 
-      - name: Record verified live URL
+      - name: Record deployment result
+        if: always()
         env:
+          ASSEMBLE: ${{ steps.assemble.outcome }}
+          DEPENDENCIES: ${{ steps.dependencies.outcome }}
+          COMMIT_SITE: ${{ steps.commit_site.outcome }}
+          VERIFY: ${{ steps.verify.outcome }}
           LIVE_URL: ${{ steps.verify.outputs.url }}
+          SITE_SHA: ${{ steps.commit_site.outputs.sha }}
         shell: bash
         run: |
           set -euo pipefail
           {
-            echo "# Amsterdam Interactive Map — live hosting status"
+            echo "# Amsterdam Interactive Map — vector deployment status"
             echo
-            echo "Status: verified"
+            echo "Assembly: ${ASSEMBLE:-not-run}"
+            echo
+            echo "Public dependencies: ${DEPENDENCIES:-not-run}"
+            echo
+            echo "Rendered-site commit: ${COMMIT_SITE:-not-run}"
+            echo
+            echo "HTTPS verification: ${VERIFY:-not-run}"
             echo
             echo "Edition: high-contrast MapLibre vector V2"
             echo
-            echo "HTTPS URL: ${LIVE_URL}"
+            echo "HTTPS URL: ${LIVE_URL:-not available}"
             echo
-            echo "Verified features: vector rendering, live GPS tracking, travelled-distance trail, waypoints and movable base"
+            echo "Site commit: ${SITE_SHA:-not available}"
             echo
             echo "Checked: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
-            echo
-            echo "Commit: ${SITE_SHA:-${GITHUB_SHA}}"
           } > HOSTING_STATUS.md
-          git pull --rebase
+          git pull --rebase || true
           git add HOSTING_STATUS.md
-          git commit -m "Record verified vector-map URL [skip ci]" || true
+          git commit -m "Record vector-map deployment result [skip ci]" || true
           git push
+
+      - name: Fail when deployment was not verified
+        if: always() && steps.verify.outcome != 'success'
+        shell: bash
+        run: exit 1
