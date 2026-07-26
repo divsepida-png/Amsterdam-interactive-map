@@ -19,14 +19,17 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      site_build: ${{ steps.site_build.outcome }}
+      pages_config: ${{ steps.pages_config.outcome }}
+      artifact_upload: ${{ steps.artifact_upload.outcome }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Configure GitHub Pages
-        uses: actions/configure-pages@v5
-
-      - name: Build static site
+      - name: Decode and validate static site
+        id: site_build
+        continue-on-error: true
         shell: bash
         run: |
           set -euo pipefail
@@ -36,10 +39,28 @@ jobs:
           test -s _site/index.html
           grep -q "Amsterdam live visitor" _site/index.html
 
+      - name: Configure GitHub Pages
+        id: pages_config
+        continue-on-error: true
+        if: steps.site_build.outcome == 'success'
+        uses: actions/configure-pages@v5
+
       - name: Upload GitHub Pages artifact
+        id: artifact_upload
+        continue-on-error: true
+        if: steps.site_build.outcome == 'success'
         uses: actions/upload-pages-artifact@v4
         with:
           path: _site
+
+      - name: Fail build when a required stage failed
+        if: steps.site_build.outcome != 'success' || steps.pages_config.outcome != 'success' || steps.artifact_upload.outcome != 'success'
+        shell: bash
+        run: |
+          echo "Site build: ${{ steps.site_build.outcome }}"
+          echo "Pages configuration: ${{ steps.pages_config.outcome }}"
+          echo "Artifact upload: ${{ steps.artifact_upload.outcome }}"
+          exit 1
 
   deploy:
     environment:
@@ -65,6 +86,9 @@ jobs:
       - name: Record deployment status
         env:
           BUILD_RESULT: ${{ needs.build.result }}
+          SITE_BUILD: ${{ needs.build.outputs.site_build }}
+          PAGES_CONFIG: ${{ needs.build.outputs.pages_config }}
+          ARTIFACT_UPLOAD: ${{ needs.build.outputs.artifact_upload }}
           DEPLOY_RESULT: ${{ needs.deploy.result }}
           PAGE_URL: ${{ needs.deploy.outputs.page_url }}
         shell: bash
@@ -73,9 +97,15 @@ jobs:
           {
             echo "# GitHub Pages deployment status"
             echo
-            echo "Build result: ${BUILD_RESULT}"
+            echo "Build job: ${BUILD_RESULT}"
             echo
-            echo "Deploy result: ${DEPLOY_RESULT}"
+            echo "Site decode/validation: ${SITE_BUILD:-unknown}"
+            echo
+            echo "Pages configuration: ${PAGES_CONFIG:-unknown}"
+            echo
+            echo "Artifact upload: ${ARTIFACT_UPLOAD:-unknown}"
+            echo
+            echo "Deploy job: ${DEPLOY_RESULT}"
             echo
             echo "Pages URL: ${PAGE_URL:-not available}"
             echo
