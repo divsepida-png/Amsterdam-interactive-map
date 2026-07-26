@@ -1,0 +1,91 @@
+name: Materialize and verify Amsterdam map
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "site.html.gz.b64"
+      - ".github/workflows/materialize-and-verify.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Materialize index.html
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 --decode site.html.gz.b64 | gzip --decompress > index.html
+          test -s index.html
+          grep -q "Amsterdam live visitor" index.html
+          grep -q "navigator.geolocation.watchPosition" index.html
+
+      - name: Commit rendered site
+        id: commit_site
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git commit -m "Materialize interactive map site [skip ci]" || true
+          git push
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Verify HTTPS rendered site
+        id: verify
+        env:
+          SITE_SHA: ${{ steps.commit_site.outputs.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL="https://raw.githack.com/${GITHUB_REPOSITORY}/${SITE_SHA}/index.html"
+          SUCCESS=false
+          for ATTEMPT in $(seq 1 18); do
+            HTTP_CODE=$(curl --location --silent --show-error --output live.html --write-out '%{http_code}' "$URL" || true)
+            if [ "$HTTP_CODE" = "200" ] && grep -q "Amsterdam live visitor" live.html && grep -q "navigator.geolocation.watchPosition" live.html; then
+              SUCCESS=true
+              break
+            fi
+            sleep 5
+          done
+          if [ "$SUCCESS" != "true" ]; then
+            echo "HTTPS verification failed for $URL"
+            exit 1
+          fi
+          HEADERS=$(curl --location --silent --show-error --head "$URL")
+          if printf '%s' "$HEADERS" | grep -Eiq '^permissions-policy:.*geolocation=\(\)'; then
+            echo "Hosting service explicitly blocks geolocation"
+            exit 1
+          fi
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "verified=true" >> "$GITHUB_OUTPUT"
+
+      - name: Record verified live URL
+        env:
+          LIVE_URL: ${{ steps.verify.outputs.url }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "# Amsterdam Interactive Map — live hosting status"
+            echo
+            echo "Status: verified"
+            echo
+            echo "HTTPS URL: ${LIVE_URL}"
+            echo
+            echo "Verified content: map title and live GPS tracking code"
+            echo
+            echo "Checked: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+          } > HOSTING_STATUS.md
+          git pull --rebase
+          git add HOSTING_STATUS.md
+          git commit -m "Record verified HTTPS map URL [skip ci]" || true
+          git push
