@@ -1,18 +1,34 @@
-# Amsterdam Interactive Map
+# Amsterdam Interactive Map V2
 
-A mobile-friendly interactive Amsterdam visitor map with HTTPS geolocation, a shrinking **you are here** marker, walking-trail recording, De Wallen frontage reference layers, adult museums/shops/shows, major landmarks, value food and hotel transport guidance.
+A high-contrast, mobile-responsive Amsterdam visitor map built around a GPU-rendered MapLibre vector engine.
 
-## Open the verified live map
+## Open the V2 map
 
-https://raw.githack.com/divsepida-png/Amsterdam-interactive-map/e69079764f26f683ac0bb89c30cfa88657f7a24d/index.html
+https://raw.githack.com/divsepida-png/Amsterdam-interactive-map/dc1b0968ad4cdc6af9b0d3538c3ad9eb9477577a/index.html
 
-The live URL was automatically checked for an HTTPS 200 response, the correct map content, and the presence of the browser live-GPS tracking code.
+The immutable HTTPS build uses a lightweight cached bootstrap. On first opening it downloads seven compressed source parts in parallel, verifies and decompresses the application, then stores the reconstructed interface in local browser storage for faster repeat loading.
 
-## Repository files
+## V2 highlights
 
-- `index.html` — complete interactive map
-- `site.html.gz.b64` — compressed reproducible source used to regenerate the page
-- `HOSTING_STATUS.md` — latest verified live URL and check status
-- `.github/workflows/materialize-and-verify.yml` — automatically rebuilds and verifies the hosted map after source changes
+- MapLibre/OpenFreeMap vector rendering instead of Leaflet raster tiles and DOM-marker redraws
+- persistent control dock occupying approximately one fifth of the screen
+- five compact menus: Locate, Explore, Route, Layers and Base
+- filtered live GPS updates, shrink-on-zoom **you are here** point and smoothed travelled path
+- travelled-distance indicator
+- address-search and coordinate controls for moving the hotel/base marker
+- drop, save and route to waypoints through Google Maps
+- large schematic building blocks for major landmarks and smaller symbols for monuments
+- red and blue De Wallen frontage references
+- green licensed cannabis coffeeshops
+- pink smartshops
+- yellow curated cuisine-value picks with immediate cuisine badges
+- adult museums, shops and shows, hotel transit lines and major tourist places
 
-Live location still requires the visitor to grant the browser precise-location permission. The page records movement only while the browser keeps the map active.
+## Source layout
+
+- `index.html` — cached V2 HTTPS bootstrap
+- `site-chunks/part-000.txt` through `part-006.txt` — compressed reproducible application source
+- `site.html.gz.b64` — previous assembled source retained for compatibility
+- `HOSTING_STATUS.md` — current published-build record
+
+The frontage blocks and highlighted businesses are navigation references, not cadastral building surveys. Adult and regulated venues are 18+. Carry identification, follow Dutch law and venue guidance, and never photograph or film sex workers or their windows.
