@@ -1,0 +1,668 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#10233f">
+<title>Amsterdam Live Visitor & Hotel Navigation Map</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+ integrity="sha256-p4NxAoJBhIINfQ3ynhZNe2jMZQZg+XYKldDa2mA3is=" crossorigin="">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+ integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<style>
+:root{
+  --navy:#10233f;--panel:#fff;--ink:#172230;--muted:#5d6b7a;--line:#d6e0e8;
+  --red:#d51529;--blue:#0879ea;--food:#dc171f;--purple:#6f2aa8;--magenta:#d20a78;
+  --orange:#f06b31;--landmark:#3f4853;--hotel:#087b38;--tram17:#e66a00;
+  --tram1:#00878d;--metro:#173fa3;--night:#7d3ca3;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--ink)}
+body{display:grid;grid-template-rows:auto 1fr;background:#edf2f6}
+header{
+  z-index:1100;background:var(--navy);color:#fff;padding:8px 10px;
+  display:flex;gap:7px;align-items:center;flex-wrap:wrap;box-shadow:0 2px 10px rgba(0,0,0,.22)
+}
+header strong{font-size:15px;margin-right:auto}
+button,a.action{
+  font:inherit;font-size:12px;font-weight:780;border-radius:8px;padding:8px 9px;
+  cursor:pointer;text-decoration:none
+}
+header button,header a.action{border:1px solid rgba(255,255,255,.42);background:rgba(255,255,255,.12);color:#fff}
+header button.active{background:#fff;color:var(--navy)}
+#status{width:100%;font-size:11.5px;line-height:1.35;opacity:.96}
+main{min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 360px}
+#map{height:100%;min-height:560px}
+aside{background:#fff;border-left:1px solid var(--line);overflow:auto;padding:12px}
+.notice,.secure,.route-alert{
+  border-radius:7px;padding:9px 10px;font-size:12px;line-height:1.4;margin-bottom:9px
+}
+.notice{background:#fff3e2;border-left:5px solid #d88400}
+.secure{background:#ebf8f0;border-left:5px solid var(--hotel)}
+.route-alert{background:#eef5ff;border-left:5px solid var(--metro)}
+h2{font-size:16px;color:var(--navy);margin:14px 0 7px}
+h3{font-size:13px;margin:10px 0 5px}
+.search-row,.coord-row{display:grid;grid-template-columns:1fr auto;gap:6px}
+.search-row input,.coord-row input{
+  width:100%;border:1px solid #aebdca;border-radius:8px;padding:9px;font:inherit;font-size:14px
+}
+.search-row button,.coord-row button{border:1px solid var(--hotel);background:var(--hotel);color:#fff}
+#searchResults{margin-top:6px;max-height:210px;overflow:auto;border-radius:7px}
+.result{
+  display:block;width:100%;text-align:left;background:#fff;color:var(--ink);
+  border:1px solid var(--line);padding:7px 8px;margin:4px 0;border-radius:7px
+}
+.result small{display:block;color:var(--muted);font-weight:500;margin-top:2px}
+.controls{display:flex;gap:5px;flex-wrap:wrap;margin:7px 0}
+.controls button{color:var(--ink);background:#fff;border:1px solid var(--line)}
+.controls button.active{color:#fff;background:var(--navy)}
+.legend{display:grid;grid-template-columns:18px 1fr;gap:7px;font-size:11.5px;align-items:center}
+.swatch{width:15px;height:8px;border-radius:2px;box-shadow:0 0 0 1px rgba(0,0,0,.25)}
+.key-icon{
+  width:15px;height:15px;border-radius:50%;display:grid;place-items:center;color:#fff;
+  font-size:8px;font-weight:900;box-shadow:0 0 0 1px rgba(0,0,0,.25)
+}
+.key-icon.diamond{border-radius:2px;transform:rotate(45deg)}
+.key-icon.diamond span{transform:rotate(-45deg)}
+.key-icon.star{border-radius:0;clip-path:polygon(50% 0,61% 34%,98% 35%,68% 56%,79% 92%,50% 70%,21% 92%,32% 56%,2% 35%,39% 34%)}
+.line-key{width:17px;height:0;border-top:4px solid;border-radius:3px}
+.line-key.dashed{border-top-style:dashed}
+.metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.metric{border:1px solid var(--line);border-radius:7px;padding:7px}
+.metric span{display:block;color:var(--muted);font-size:10px}
+.metric strong{display:block;font-size:12px;margin-top:2px;overflow-wrap:anywhere}
+.note{font-size:10.5px;color:var(--muted);line-height:1.4;margin-top:8px}
+.route-card{border:1px solid var(--line);border-radius:8px;padding:8px;margin:6px 0}
+.route-card strong{display:block;font-size:12.5px}
+.route-card small{display:block;color:var(--muted);line-height:1.35;margin-top:3px}
+.leaflet-popup-content{margin:10px 12px;line-height:1.4;min-width:210px}
+.popup-title{font-size:14px;font-weight:850}
+.popup-category{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;margin:3px 0}
+.popup-actions{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px}
+.popup-actions a{
+  background:#eef3f7;color:#10385f;text-decoration:none;border-radius:6px;padding:5px 7px;font-size:11px;font-weight:780
+}
+.marker-shell{
+  display:grid;place-items:center;border:2px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.45);
+  color:#fff;font-weight:900;font-family:system-ui,sans-serif
+}
+.marker-circle{border-radius:50%}
+.marker-diamond{transform:rotate(45deg);border-radius:3px}
+.marker-diamond span{transform:rotate(-45deg)}
+.marker-star{
+  border:0;clip-path:polygon(50% 0,61% 34%,98% 35%,68% 56%,79% 92%,50% 70%,21% 92%,32% 56%,2% 35%,39% 34%);
+  filter:drop-shadow(0 1px 2px rgba(0,0,0,.35))
+}
+.window-tooltip{font-weight:850}
+.location-label{
+  background:#075dcc;color:#fff;border:1px solid #fff;border-radius:5px;padding:1px 4px;font-size:9px;font-weight:850
+}
+.transport-label{font-weight:850}
+@media(max-width:880px){
+  main{grid-template-columns:1fr;grid-template-rows:minmax(62vh,1fr) auto}
+  aside{border-left:0;border-top:1px solid var(--line)}
+  #map{min-height:62vh}
+}
+</style>
+</head>
+<body>
+<header>
+  <strong>Amsterdam live visitor & hotel map</strong>
+  <button id="gpsBtn" type="button">Start live GPS</button>
+  <button id="stopBtn" type="button" disabled>Stop GPS</button>
+  <button id="tapBtn" type="button">Tap-to-place</button>
+  <button id="followBtn" class="active" type="button">Follow: on</button>
+  <button id="accuracyBtn" class="active" type="button">Accuracy: on</button>
+  <a id="hotelRouteLink" class="action" target="_blank" rel="noopener">Route to hotel</a>
+  <a class="action" target="_blank" rel="noopener" href="https://www.gvb.nl/en/travel-information/plan-your-journey">GVB live planner</a>
+  <div id="status" aria-live="polite">Loading HTTPS and location checks…</div>
+</header>
+
+<main>
+  <div id="map" aria-label="Zoomable Amsterdam street map with live-location tracking"></div>
+  <aside>
+    <div id="httpsNotice" class="secure"><strong>HTTPS check:</strong> checking…</div>
+
+    <div class="notice">
+      <strong>Window-frontage accuracy:</strong> red and blue markings show approximate publicly known street-frontage clusters, not individual occupied windows. Active windows and lighting change. Never photograph or film workers or windows.
+    </div>
+
+    <div class="route-alert">
+      <strong>Current summer service — 26 July 2026:</strong> Trams 1 and 17 terminate at Surinameplein. Tram 17 is diverted through Koningsplein and Leidseplein; Westermarkt and Elandsgracht are not Tram 17 stops during the works. Metro 51 currently runs between Zuid and Isolatorweg via Lelylaan, not through the historic-centre metro stations. Check GVB immediately before travelling.
+    </div>
+
+    <h2>Find any place</h2>
+    <div class="search-row">
+      <input id="searchInput" type="search" placeholder="Search landmark, food, adult place or stop">
+      <button id="searchBtn" type="button">Find</button>
+    </div>
+    <div id="searchResults"></div>
+
+    <h2>Quick views</h2>
+    <div class="controls">
+      <button id="centreBtn" type="button">City centre</button>
+      <button id="wallenBtn" type="button">De Wallen</button>
+      <button id="hotelBtn" type="button">Hotel</button>
+      <button id="allBtn" type="button">Show all</button>
+    </div>
+
+    <h2>Layers</h2>
+    <div class="controls">
+      <button id="redBtn" class="active" type="button">Red windows</button>
+      <button id="blueBtn" class="active" type="button">Blue windows</button>
+      <button id="adultMuseumBtn" class="active" type="button">Sex museums</button>
+      <button id="adultShopBtn" class="active" type="button">Sex/fetish shops</button>
+      <button id="adultShowBtn" class="active" type="button">Adult shows</button>
+      <button id="foodBtn" class="active" type="button">Value food</button>
+      <button id="landmarkBtn" class="active" type="button">Landmarks</button>
+      <button id="transportBtn" class="active" type="button">Hotel transport</button>
+    </div>
+
+    <h2>Key</h2>
+    <div class="legend">
+      <span class="swatch" style="background:var(--red)"></span><span>Approximate red-light window frontage</span>
+      <span class="swatch" style="background:var(--blue)"></span><span>Blue-light reference frontage</span>
+      <span class="key-icon marker-circle" style="background:var(--food)">£</span><span>Cheap / strong-value food</span>
+      <span class="key-icon marker-circle" style="background:var(--purple)">M</span><span>Sex / erotic museum</span>
+      <span class="key-icon diamond" style="background:var(--magenta)"><span>S</span></span><span>Sex, fetish or kinky shop</span>
+      <span class="key-icon star" style="background:var(--orange)"></span><span>Adult show / attraction</span>
+      <span class="key-icon marker-circle" style="background:var(--landmark)">L</span><span>Major landmark or tourist place</span>
+      <span class="key-icon marker-circle" style="background:var(--hotel)">H</span><span>WestCord Fashion Hotel</span>
+      <span class="line-key" style="border-color:var(--tram17)"></span><span>Tram 17 — best direct central route</span>
+      <span class="line-key" style="border-color:var(--tram1)"></span><span>Tram 1 — Leidseplein / Weesperplein route</span>
+      <span class="line-key" style="border-color:var(--metro)"></span><span>Metro 51 — Zuid/Sloterdijk to Lelylaan</span>
+      <span class="line-key dashed" style="border-color:var(--night)"></span><span>Night Bus N83 — check live GVB</span>
+      <span class="line-key" style="border-color:#075dcc"></span><span>Your recorded walking trail</span>
+    </div>
+
+    <h2>Best routes to the hotel</h2>
+    <div class="route-card">
+      <strong>From Centraal, Dam or Leidseplein: Tram 17</strong>
+      <small>Take Tram 17 toward Surinameplein, leave at Surinameplein, then walk about 500 m to Hendrikje Stoffelsstraat 1.</small>
+    </div>
+    <div class="route-card">
+      <strong>From Weesperplein, Weteringcircuit or Leidseplein: Tram 1</strong>
+      <small>Take Tram 1 toward Surinameplein. The final walk is approximately 500 m.</small>
+    </div>
+    <div class="route-card">
+      <strong>From Station Zuid or Sloterdijk: Metro 51</strong>
+      <small>Take Metro 51 to Amsterdam Lelylaan, then walk approximately 8–10 minutes. During the current summer timetable, Metro 51 does not serve Centraal, Nieuwmarkt or Waterlooplein.</small>
+    </div>
+    <div class="route-card">
+      <strong>Late night: N83</strong>
+      <small>Night Bus N83 toward Osdorp De Aker can be useful from Centraal. Check the live GVB planner for the nearest operating stop and current diversion before boarding.</small>
+    </div>
+    <div class="route-card">
+      <strong>Bus 15 warning</strong>
+      <small>Bus 15 is normally useful around Surinameplein, but current works may divert it away from the stop. Do not rely on it without checking GVB live information.</small>
+    </div>
+
+    <h2>Manual location fallback</h2>
+    <div class="coord-row">
+      <input id="coordInput" type="text" inputmode="decimal" placeholder="52.372200, 4.900370">
+      <button id="coordBtn" type="button">Place</button>
+    </div>
+    <div class="controls">
+      <button id="pauseTrailBtn" type="button">Pause trail</button>
+      <button id="clearTrailBtn" type="button">Clear trail</button>
+      <button id="exportTrailBtn" type="button">Export GPX</button>
+    </div>
+
+    <h2>Tracking</h2>
+    <div class="metric-grid">
+      <div class="metric"><span>Mode</span><strong id="modeValue">—</strong></div>
+      <div class="metric"><span>Accuracy</span><strong id="accuracyValue">—</strong></div>
+      <div class="metric"><span>Coordinates</span><strong id="coordinateValue">—</strong></div>
+      <div class="metric"><span>Trail</span><strong id="trailValue">0 points · 0 m</strong></div>
+    </div>
+    <div class="note">
+      The “you are here” dot intentionally shrinks as you zoom in and its label fades at street-level zoom. Live movement uses the browser’s <code>watchPosition()</code> service. Tracking works while this HTTPS page is open, but phones may suspend background browser tabs.
+    </div>
+  </aside>
+</main>
+
+<script>
+const DATA = {"hotel": {"name": "WestCord Fashion Hotel Amsterdam", "address": "Hendrikje Stoffelsstraat 1, 1058 GC Amsterdam", "lat": 52.357545, "lon": 4.844081, "source": "https://westcordhotels.com/hotel/fashion-hotel-amsterdam/"}, "food": [{"name": "Vleminckx de Sausmeester", "address": "Voetboogstraat 33", "lat": 52.36815, "lon": 4.8895, "note": "Fries; inexpensive takeaway", "source": "https://vleminckxdesausmeester.nl/en/"}, {"name": "Caldi e Freddi", "address": "Spuistraat 102", "lat": 52.37455, "lon": 4.88915, "note": "Italian deli; low-cost slices and sandwiches", "source": "https://www.caldiefreddi.nl/"}, {"name": "Rob Wigboldus Vishandel", "address": "Zoutsteeg 6", "lat": 52.37537, "lon": 4.89448, "note": "Fish sandwiches, herring and kibbeling", "source": "https://www.facebook.com/pages/Rob-Wigboldus-Vishandel/147953155400492"}, {"name": "Broodje Bert", "address": "Singel 321", "lat": 52.37082, "lon": 4.88842, "note": "Generously filled sandwiches", "source": "https://www.debuik.nl/amsterdam/restaurant/broodje-bert"}, {"name": "De Hapjeshoek", "address": "Waterlooplein 6", "lat": 52.36812, "lon": 4.90292, "note": "Affordable Surinamese takeaway", "source": "https://dehapjeshoek.nl/en/"}, {"name": "Eetsalon Van Dobben", "address": "Korte Reguliersdwarsstraat 5–9", "lat": 52.36642, "lon": 4.8945, "note": "Classic Dutch sandwiches and croquettes", "source": "https://eetsalonvandobben.nl/"}, {"name": "Haring & Zo", "address": "Nieuwezijds Voorburgwal 200", "lat": 52.37272, "lon": 4.89082, "note": "No-frills herring stand", "source": "http://www.haringenzo.nl/"}, {"name": "Tjin's Exotische Broodjes", "address": "Van Woustraat 17", "lat": 52.35683, "lon": 4.90024, "note": "Surinamese/Hakka filled sandwiches", "source": "https://tjins.nl/"}, {"name": "FEBO Nieuwendijk", "address": "Nieuwendijk 50", "lat": 52.37629, "lon": 4.89536, "note": "Low-cost Dutch snacks", "source": "https://www.febo.nl/"}, {"name": "Omelegg City Centre", "address": "Nieuwebrugsteeg 24", "lat": 52.37707, "lon": 4.89859, "note": "Good-value breakfast/brunch rather than ultra-cheap", "source": "https://omelegg.com/"}, {"name": "Bird Thai Snackbar", "address": "Zeedijk 77", "lat": 52.37461, "lon": 4.9004, "note": "Popular Thai snackbar", "source": "https://www.thai-bird.nl/"}], "adultPlaces": [{"name": "Sexmuseum Amsterdam Venustempel", "category": "adult-museum", "address": "Damrak 18", "lat": 52.37713, "lon": 4.89728, "note": "Adult-history museum", "source": "https://sexmuseumamsterdam.nl/"}, {"name": "Red Light Secrets — Museum of Prostitution", "category": "adult-museum", "address": "Oudezijds Achterburgwal 60", "lat": 52.37373, "lon": 4.8991, "note": "Museum in a former canal-house brothel", "source": "https://www.redlightsecrets.com/"}, {"name": "Erotic Museum", "category": "adult-museum", "address": "Oudezijds Achterburgwal 54", "lat": 52.37391, "lon": 4.89921, "note": "Erotic-art and history museum", "source": "https://erotisch-museum.nl/"}, {"name": "Condomerie", "category": "adult-shop", "address": "Warmoesstraat 141", "lat": 52.37402, "lon": 4.89653, "note": "Specialist condom shop and visitor stop", "source": "https://condomerie.com/"}, {"name": "Mister B Amsterdam", "category": "adult-shop", "address": "Prinsengracht 192", "lat": 52.37436, "lon": 4.8832, "note": "Fetish and leather shop", "source": "https://www.misterb.com/en/amsterdam"}, {"name": "Mail & Female", "category": "adult-shop", "address": "Nieuwe Vijzelstraat 2", "lat": 52.35953, "lon": 4.8875, "note": "Sex-positive boutique", "source": "https://www.mailfemale.com/"}, {"name": "Pure Lust Candy Store", "category": "adult-shop", "address": "Oudezijds Voorburgwal 135", "lat": 52.37187, "lon": 4.89752, "note": "Adult shop in De Wallen", "source": "https://www.amsterdam.nl/stadsarchief/stukken/ondernemen/pure-lust/"}, {"name": "Star Shop", "category": "adult-shop", "address": "Oudekennissteeg 9", "lat": 52.37379, "lon": 4.89914, "note": "BDSM-focused adult shop", "source": "https://www.amsterdam.nl/stadsarchief/stukken/ondernemen/star-shop/"}, {"name": "Casa Rosso", "category": "adult-show", "address": "Oudezijds Achterburgwal 106–108", "lat": 52.37239, "lon": 4.89938, "note": "Adult theatre; 18+", "source": "https://www.casarosso.nl/"}, {"name": "Bananenbar", "category": "adult-show", "address": "Oudezijds Achterburgwal 37", "lat": 52.37437, "lon": 4.89955, "note": "Adult bar/show venue; 18+", "source": "https://www.bananenbar.nl/"}, {"name": "Sex Palace Peepshow", "category": "adult-show", "address": "Oudezijds Achterburgwal 84", "lat": 52.37324, "lon": 4.89927, "note": "Peepshow venue; 18+", "source": "https://www.otten-group.com/sex-palace-peepshow/"}, {"name": "Sexy Loo", "category": "adult-show", "address": "Oudezijds Achterburgwal 86", "lat": 52.37315, "lon": 4.89929, "note": "Novelty adult attraction", "source": "https://www.otten-group.com/sexy-loo/"}, {"name": "Theater 97", "category": "adult-show", "address": "Oudezijds Achterburgwal 97", "lat": 52.37268, "lon": 4.89934, "note": "Adult entertainment venue; 18+", "source": "https://www.otten-group.com/theater-97/"}], "landmarks": [{"name": "Amsterdam Centraal", "category": "transport-landmark", "lat": 52.37817, "lon": 4.90056, "address": "Stationsplein"}, {"name": "Dam Square", "category": "square", "lat": 52.37312, "lon": 4.8922, "address": "Dam"}, {"name": "Royal Palace Amsterdam", "category": "historic", "lat": 52.37316, "lon": 4.89162, "address": "Nieuwezijds Voorburgwal 147"}, {"name": "Nieuwe Kerk", "category": "historic", "lat": 52.37378, "lon": 4.8913, "address": "De Dam"}, {"name": "National Monument", "category": "historic", "lat": 52.37282, "lon": 4.89318, "address": "Dam"}, {"name": "Oude Kerk", "category": "historic", "lat": 52.37437, "lon": 4.89808, "address": "Oudekerksplein 23"}, {"name": "Nieuwmarkt & De Waag", "category": "historic", "lat": 52.37257, "lon": 4.90028, "address": "Nieuwmarkt"}, {"name": "Anne Frank House", "category": "museum", "lat": 52.37522, "lon": 4.88398, "address": "Westermarkt 20"}, {"name": "Westerkerk", "category": "historic", "lat": 52.37488, "lon": 4.88369, "address": "Prinsengracht 279"}, {"name": "Begijnhof", "category": "historic", "lat": 52.3692, "lon": 4.89047, "address": "Begijnhof"}, {"name": "De 9 Straatjes", "category": "area", "lat": 52.37084, "lon": 4.88585, "address": "Nine Streets area"}, {"name": "Jordaan", "category": "area", "lat": 52.375, "lon": 4.8785, "address": "Jordaan district"}, {"name": "UNESCO Canal Ring", "category": "area", "lat": 52.3685, "lon": 4.8852, "address": "Canal Belt"}, {"name": "Rembrandt House Museum", "category": "museum", "lat": 52.36939, "lon": 4.9012, "address": "Jodenbreestraat 4"}, {"name": "Our Lord in the Attic Museum", "category": "museum", "lat": 52.37515, "lon": 4.89983, "address": "Oudezijds Voorburgwal 38–40"}, {"name": "Rembrandtplein", "category": "square", "lat": 52.36693, "lon": 4.89657, "address": "Rembrandtplein"}, {"name": "Leidseplein", "category": "square", "lat": 52.36421, "lon": 4.88198, "address": "Leidseplein"}, {"name": "Flower Market (Bloemenmarkt)", "category": "market", "lat": 52.36694, "lon": 4.89222, "address": "Singel"}, {"name": "Waterlooplein Market", "category": "market", "lat": 52.36803, "lon": 4.9023, "address": "Waterlooplein"}, {"name": "Albert Cuyp Market", "category": "market", "lat": 52.35558, "lon": 4.89553, "address": "Albert Cuypstraat"}, {"name": "Museumplein", "category": "square", "lat": 52.35791, "lon": 4.87906, "address": "Museumplein"}, {"name": "Rijksmuseum", "category": "museum", "lat": 52.35999, "lon": 4.88522, "address": "Museumstraat 1"}, {"name": "Van Gogh Museum", "category": "museum", "lat": 52.35842, "lon": 4.88108, "address": "Museumplein 6"}, {"name": "Stedelijk Museum", "category": "museum", "lat": 52.35802, "lon": 4.87976, "address": "Museumplein 10"}, {"name": "Moco Museum", "category": "museum", "lat": 52.3586, "lon": 4.88128, "address": "Honthorststraat 20"}, {"name": "Heineken Experience", "category": "attraction", "lat": 52.35798, "lon": 4.891, "address": "Stadhouderskade 78"}, {"name": "NEMO Science Museum", "category": "museum", "lat": 52.37437, "lon": 4.91263, "address": "Oosterdok 2"}, {"name": "National Maritime Museum", "category": "museum", "lat": 52.37175, "lon": 4.91428, "address": "Kattenburgerplein 1"}, {"name": "ARTIS Royal Zoo", "category": "attraction", "lat": 52.36604, "lon": 4.91619, "address": "Plantage Kerklaan 38–40"}, {"name": "Hortus Botanicus", "category": "attraction", "lat": 52.36699, "lon": 4.90745, "address": "Plantage Middenlaan 2a"}, {"name": "H'ART Museum", "category": "museum", "lat": 52.36502, "lon": 4.90208, "address": "Amstel 51"}, {"name": "Jewish Museum", "category": "museum", "lat": 52.36723, "lon": 4.90469, "address": "Nieuwe Amstelstraat 1"}, {"name": "Portuguese Synagogue", "category": "historic", "lat": 52.36739, "lon": 4.90484, "address": "Mr. Visserplein 3"}, {"name": "Magere Brug", "category": "historic", "lat": 52.36358, "lon": 4.90228, "address": "Kerkstraat / Amstel"}, {"name": "Vondelpark", "category": "park", "lat": 52.358, "lon": 4.86865, "address": "Vondelpark"}, {"name": "Foodhallen / De Hallen", "category": "attraction", "lat": 52.36785, "lon": 4.8687, "address": "Bellamyplein 51"}, {"name": "A'DAM Lookout", "category": "attraction", "lat": 52.38305, "lon": 4.90265, "address": "Overhoeksplein 5"}, {"name": "EYE Filmmuseum", "category": "museum", "lat": 52.38402, "lon": 4.90057, "address": "IJpromenade 1"}, {"name": "Amsterdam Dungeon", "category": "attraction", "lat": 52.36986, "lon": 4.89001, "address": "Rokin 78"}, {"name": "BODY WORLDS Amsterdam", "category": "attraction", "lat": 52.37502, "lon": 4.89505, "address": "Damrak 66"}, {"name": "Ripley's Believe It or Not!", "category": "attraction", "lat": 52.37266, "lon": 4.89337, "address": "Dam 21"}], "redFrontages": [{"name": "Oudezijds Achterburgwal — northern frontage", "points": [[52.37545, 4.89905], [52.37475, 4.89912]]}, {"name": "Oudezijds Achterburgwal — central frontage", "points": [[52.37468, 4.89913], [52.37373, 4.8992]]}, {"name": "Oudezijds Achterburgwal — southern frontage", "points": [[52.37365, 4.89921], [52.37235, 4.89933]]}, {"name": "Oudezijds Voorburgwal — Oude Kerk frontage", "points": [[52.37505, 4.89748], [52.3742, 4.8976]]}, {"name": "Oudezijds Voorburgwal — central frontage", "points": [[52.37412, 4.89761], [52.37315, 4.8977]]}, {"name": "Trompettersteeg frontage", "points": [[52.37331, 4.8981], [52.3733, 4.89912]]}, {"name": "Dollebegijnensteeg frontage", "points": [[52.37372, 4.89782], [52.37372, 4.89905]]}, {"name": "Sint Annenstraat frontage", "points": [[52.37418, 4.89778], [52.37418, 4.89895]]}, {"name": "Molensteeg frontage", "points": [[52.37302, 4.89916], [52.37302, 4.90002]]}, {"name": "Stoofsteeg frontage", "points": [[52.37282, 4.8992], [52.37282, 4.89998]]}, {"name": "Oudekennissteeg frontage", "points": [[52.37262, 4.89922], [52.37262, 4.89995]]}], "blueFrontages": [{"name": "Bloedstraat blue-light reference frontage", "points": [[52.3729, 4.89955], [52.3729, 4.90015]]}, {"name": "Gordijnensteeg blue-light reference frontage", "points": [[52.37255, 4.89955], [52.37255, 4.89996]]}, {"name": "Barndesteeg blue-light reference area", "points": [[52.37237, 4.89972], [52.37237, 4.90012]], "confidence": "lower"}], "tram17": [[52.37817, 4.90056], [52.37525, 4.89365], [52.37312, 4.8922], [52.3729, 4.89085], [52.36785, 4.89063], [52.36692, 4.88755], [52.36562, 4.885], [52.36421, 4.88198], [52.3625, 4.8723], [52.35784, 4.84818]], "tram1": [[52.36103, 4.90612], [52.3591, 4.899], [52.3593, 4.8871], [52.36421, 4.88198], [52.3625, 4.8723], [52.35784, 4.84818]], "metro51": [[52.33899, 4.87317], [52.33841, 4.85727], [52.34269, 4.8327], [52.35217, 4.83417], [52.35722, 4.83389], [52.36415, 4.83377], [52.37216, 4.83567], [52.3799, 4.83768], [52.38812, 4.83767], [52.39513, 4.85038]], "night83": [[52.37817, 4.90056], [52.37312, 4.8922], [52.37418, 4.88375], [52.36774, 4.88033], [52.3595, 4.8548], [52.35784, 4.84818], [52.35722, 4.83389]], "transitStops": [{"name": "Amsterdam Centraal", "lines": "Tram 17; Night Bus N83", "lat": 52.37817, "lon": 4.90056, "note": "Best central starting point for Tram 17 toward Surinameplein."}, {"name": "Nieuwezijds Kolk", "lines": "Tram 17", "lat": 52.37525, "lon": 4.89365, "note": "Current diverted Tram 17 route."}, {"name": "Dam / Paleisstraat", "lines": "Tram 17", "lat": 52.37293, "lon": 4.89135, "note": "Take Tram 17 toward Surinameplein."}, {"name": "Koningsplein", "lines": "Tram 17", "lat": 52.36785, "lon": 4.89063, "note": "Current diverted Tram 17 route."}, {"name": "Leidseplein", "lines": "Tram 1 / 17", "lat": 52.36421, "lon": 4.88198, "note": "Both current hotel-bound tram options pass here."}, {"name": "Weesperplein", "lines": "Tram 1", "lat": 52.36103, "lon": 4.90612, "note": "Tram 1 toward Surinameplein."}, {"name": "Surinameplein", "lines": "Tram 1 / 17", "lat": 52.35784, "lon": 4.84818, "note": "Recommended stop; walk about 500 m to the hotel."}, {"name": "Amsterdam Lelylaan", "lines": "Metro 51; Tram 1 / 17; NS", "lat": 52.35722, "lon": 4.83389, "note": "About 8–10 minutes on foot to the hotel."}, {"name": "Amsterdam Zuid", "lines": "Metro 51", "lat": 52.33899, "lon": 4.87317, "note": "During the current summer timetable, Metro 51 runs from Zuid toward Isolatorweg via Lelylaan."}, {"name": "Station Sloterdijk", "lines": "Metro 51", "lat": 52.38812, "lon": 4.83767, "note": "Metro 51 toward Zuid stops at Lelylaan."}]};
+
+const colours = {
+  food:'#dc171f', adultMuseum:'#6f2aa8', adultShop:'#d20a78', adultShow:'#f06b31',
+  landmark:'#3f4853', hotel:'#087b38', tram17:'#e66a00', tram1:'#00878d',
+  metro:'#173fa3', night:'#7d3ca3', red:'#d51529', blue:'#0879ea'
+};
+
+const map = L.map('map', {zoomControl:true, preferCanvas:false}).setView([52.3695,4.889], 13);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom:20,
+  attribution:'&copy; OpenStreetMap contributors'
+}).addTo(map);
+L.control.scale({imperial:false,position:'bottomleft'}).addTo(map);
+
+const groups = {
+  red:L.layerGroup().addTo(map),
+  blue:L.layerGroup().addTo(map),
+  adultMuseum:L.layerGroup().addTo(map),
+  adultShop:L.layerGroup().addTo(map),
+  adultShow:L.layerGroup().addTo(map),
+  food:L.layerGroup().addTo(map),
+  landmarks:L.layerGroup().addTo(map),
+  transport:L.layerGroup().addTo(map)
+};
+
+const searchable = [];
+const allBounds = L.latLngBounds([]);
+
+function icon(category, text, colour, shape='circle', size=24) {
+  const shapeClass = shape === 'diamond' ? 'marker-diamond' : shape === 'star' ? 'marker-star' : 'marker-circle';
+  return L.divIcon({
+    className:'',
+    html:`<div class="marker-shell ${shapeClass}" style="width:${size}px;height:${size}px;background:${colour};font-size:${Math.max(8,size*.38)}px"><span>${text}</span></div>`,
+    iconSize:[size,size], iconAnchor:[size/2,size/2], popupAnchor:[0,-size/2]
+  });
+}
+
+function directions(lat,lon,mode='walking') {
+  return 'https://www.google.com/maps/dir/?api=1&destination=' +
+    encodeURIComponent(`${lat},${lon}`) + '&travelmode=' + mode;
+}
+function routeToHotel(lat,lon) {
+  return 'https://www.google.com/maps/dir/?api=1&origin=' +
+    encodeURIComponent(`${lat},${lon}`) + '&destination=' +
+    encodeURIComponent(`${DATA.hotel.lat},${DATA.hotel.lon}`) + '&travelmode=transit';
+}
+function sourceLink(url) {
+  return url ? `<a target="_blank" rel="noopener" href="${url}">Official/source page</a>` : '';
+}
+function popup(item, categoryLabel) {
+  return `<div>
+    <div class="popup-title">${item.name}</div>
+    <div class="popup-category">${categoryLabel}</div>
+    ${item.address ? `<div>${item.address}</div>` : ''}
+    ${item.note ? `<div>${item.note}</div>` : ''}
+    <div class="popup-actions">
+      <a target="_blank" rel="noopener" href="${directions(item.lat,item.lon)}">Navigate here</a>
+      <a target="_blank" rel="noopener" href="${routeToHotel(item.lat,item.lon)}">Transit to hotel</a>
+      ${sourceLink(item.source)}
+    </div>
+  </div>`;
+}
+function register(item, marker, category) {
+  searchable.push({
+    name:item.name,
+    address:item.address || '',
+    category,
+    marker,
+    lat:item.lat,
+    lon:item.lon
+  });
+  allBounds.extend([item.lat,item.lon]);
+}
+
+const hotelMarker = L.marker([DATA.hotel.lat,DATA.hotel.lon], {
+  icon:icon('hotel','H',colours.hotel,'circle',30),
+  zIndexOffset:1000
+}).bindPopup(popup(DATA.hotel,'Hotel')).addTo(map);
+register(DATA.hotel,hotelMarker,'Hotel');
+
+for (const item of DATA.food) {
+  const marker=L.marker([item.lat,item.lon],{icon:icon('food','£',colours.food,'circle',23)})
+    .bindPopup(popup(item,'Cheap / strong-value food')).addTo(groups.food);
+  register(item,marker,'Value food');
+}
+for (const item of DATA.adultPlaces) {
+  let group,colour,shape,text,label;
+  if(item.category==='adult-museum'){
+    group=groups.adultMuseum;colour=colours.adultMuseum;shape='circle';text='M';label='Sex / erotic museum';
+  }else if(item.category==='adult-shop'){
+    group=groups.adultShop;colour=colours.adultShop;shape='diamond';text='S';label='Sex / fetish / kinky shop';
+  }else{
+    group=groups.adultShow;colour=colours.adultShow;shape='star';text='';label='Adult show / attraction';
+  }
+  const marker=L.marker([item.lat,item.lon],{icon:icon(item.category,text,colour,shape,25)})
+    .bindPopup(popup(item,label)).addTo(group);
+  register(item,marker,label);
+}
+for (const item of DATA.landmarks) {
+  const marker=L.marker([item.lat,item.lon],{icon:icon('landmark','L',colours.landmark,'circle',20)})
+    .bindPopup(popup(item,'Major landmark / tourist place')).addTo(groups.landmarks);
+  register(item,marker,'Landmark');
+}
+
+function addFrontages(items,group,colour,label) {
+  for(const item of items){
+    const line=L.polyline(item.points,{
+      color:colour,weight:8,opacity:.87,lineCap:'round'
+    }).bindTooltip(item.name,{className:'window-tooltip',sticky:true})
+      .bindPopup(`<div>
+        <div class="popup-title">${item.name}</div>
+        <div class="popup-category">${label}</div>
+        <div>Approximate public street-frontage cluster; individual active windows and lighting can change.</div>
+        <div><strong>Respect:</strong> never photograph or film workers or windows.</div>
+      </div>`)
+      .addTo(group);
+    for(const point of item.points) allBounds.extend(point);
+  }
+}
+addFrontages(DATA.redFrontages,groups.red,colours.red,'Red-light window frontage');
+addFrontages(DATA.blueFrontages,groups.blue,colours.blue,'Blue-light reference frontage');
+
+function routeLine(points,colour,label,dashed=false) {
+  const line=L.polyline(points,{
+    color:colour,weight:5,opacity:.86,dashArray:dashed?'8 8':null,lineCap:'round'
+  }).bindTooltip(label,{className:'transport-label',sticky:true}).addTo(groups.transport);
+  for(const point of points) allBounds.extend(point);
+  return line;
+}
+routeLine(DATA.tram17,colours.tram17,'Tram 17 — current summer route to Surinameplein');
+routeLine(DATA.tram1,colours.tram1,'Tram 1 — current summer route to Surinameplein');
+routeLine(DATA.metro51,colours.metro,'Metro 51 — current summer route Zuid–Isolatorweg via Lelylaan');
+routeLine(DATA.night83,colours.night,'Night Bus N83 — schematic; verify live GVB',true);
+
+for(const item of DATA.transitStops){
+  const marker=L.marker([item.lat,item.lon],{
+    icon:icon('transit','T',colours.tram1,'circle',22)
+  }).bindPopup(popup(item,item.lines)).addTo(groups.transport);
+  register(item,marker,'Hotel transport');
+}
+
+const trail=L.polyline([],{
+  color:'#075dcc',weight:4,opacity:.8,lineCap:'round'
+}).addTo(map);
+let trailPoints=[];
+let trailPaused=false;
+let watchId=null;
+let positionMarker=null;
+let accuracyCircle=null;
+let locationLabel=null;
+let lastPosition=null;
+let follow=true;
+let tapMode=false;
+let showAccuracy=true;
+
+const statusEl=document.getElementById('status');
+const gpsBtn=document.getElementById('gpsBtn');
+const stopBtn=document.getElementById('stopBtn');
+const tapBtn=document.getElementById('tapBtn');
+const followBtn=document.getElementById('followBtn');
+const accuracyBtn=document.getElementById('accuracyBtn');
+const modeValue=document.getElementById('modeValue');
+const accuracyValue=document.getElementById('accuracyValue');
+const coordinateValue=document.getElementById('coordinateValue');
+const trailValue=document.getElementById('trailValue');
+const hotelRouteLink=document.getElementById('hotelRouteLink');
+
+hotelRouteLink.href=directions(DATA.hotel.lat,DATA.hotel.lon,'transit');
+
+function safeStore(key,value){
+  try{localStorage.setItem(key,JSON.stringify(value));}catch(error){}
+}
+function safeLoad(key,fallback){
+  try{
+    const value=localStorage.getItem(key);
+    return value?JSON.parse(value):fallback;
+  }catch(error){return fallback;}
+}
+function haversine(a,b){
+  const R=6371000,rad=x=>x*Math.PI/180;
+  const dLat=rad(b.lat-a.lat),dLon=rad(b.lng-a.lng);
+  const h=Math.sin(dLat/2)**2+Math.cos(rad(a.lat))*Math.cos(rad(b.lat))*Math.sin(dLon/2)**2;
+  return 2*R*Math.asin(Math.min(1,Math.sqrt(h)));
+}
+function trailDistance(){
+  let total=0;
+  for(let i=1;i<trailPoints.length;i++) total+=haversine(trailPoints[i-1],trailPoints[i]);
+  return total;
+}
+function renderTrail(){
+  trail.setLatLngs(trailPoints);
+  const d=trailDistance();
+  trailValue.textContent=`${trailPoints.length} points · ${d>=1000?(d/1000).toFixed(2)+' km':Math.round(d)+' m'}`;
+  safeStore('ams-final-trail',trailPoints);
+}
+function addTrailPoint(lat,lng,mode){
+  if(trailPaused) return;
+  const next={lat,lng,time:Date.now(),mode};
+  const prev=trailPoints.at(-1);
+  if(prev){
+    const d=haversine(prev,next);
+    if(mode==='Live GPS'&&d<4)return;
+    if(mode!=='Live GPS'&&d<1)return;
+    if(d>500&&mode==='Live GPS')return;
+  }
+  trailPoints.push(next);
+  if(trailPoints.length>2500) trailPoints=trailPoints.slice(-2500);
+  renderTrail();
+}
+function positionRadius(){
+  const z=map.getZoom();
+  return Math.max(.85,5.4-Math.max(0,z-13)*.76);
+}
+function updateTrackingVisuals(){
+  if(positionMarker) positionMarker.setRadius(positionRadius());
+  const z=map.getZoom();
+  trail.setStyle({weight:Math.max(1.35,4-(z-13)*.36)});
+  if(locationLabel) locationLabel.setOpacity(z>=18?0:z>=16?.5:1);
+}
+map.on('zoomend',updateTrackingVisuals);
+
+function placePosition(lat,lng,accuracy=null,mode='Manual',record=true){
+  lastPosition={lat,lng,accuracy,mode,time:Date.now()};
+  const colour=mode==='Live GPS'?'#075dcc':'#e56700';
+  if(!positionMarker){
+    positionMarker=L.circleMarker([lat,lng],{
+      radius:positionRadius(),color:'#fff',weight:1.15,fillColor:colour,fillOpacity:1,pane:'markerPane'
+    }).addTo(map);
+    locationLabel=L.tooltip({
+      permanent:true,direction:'top',offset:[0,-5],className:'location-label'
+    }).setContent('YOU').setLatLng([lat,lng]).addTo(map);
+  }else{
+    positionMarker.setLatLng([lat,lng]).setStyle({fillColor:colour});
+    locationLabel.setLatLng([lat,lng]).setContent(mode==='Live GPS'?'YOU':'MARKED');
+  }
+  if(Number.isFinite(accuracy)&&showAccuracy){
+    if(!accuracyCircle){
+      accuracyCircle=L.circle([lat,lng],{
+        radius:accuracy,color:'#075dcc',weight:1,fillColor:'#075dcc',fillOpacity:.07
+      }).addTo(map);
+    }else accuracyCircle.setLatLng([lat,lng]).setRadius(accuracy);
+  }else if(accuracyCircle){
+    map.removeLayer(accuracyCircle);
+    accuracyCircle=null;
+  }
+  modeValue.textContent=mode;
+  accuracyValue.textContent=Number.isFinite(accuracy)?`±${Math.round(accuracy)} m`:'Manual';
+  coordinateValue.textContent=`${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+  hotelRouteLink.href=routeToHotel(lat,lng);
+  if(record)addTrailPoint(lat,lng,mode);
+  safeStore('ams-final-position',lastPosition);
+  if(follow)map.panTo([lat,lng],{animate:true});
+  updateTrackingVisuals();
+}
+function gpsSuccess(position){
+  placePosition(position.coords.latitude,position.coords.longitude,position.coords.accuracy,'Live GPS',true);
+  statusEl.textContent='Live GPS active — your dot and walking trail are updating.';
+}
+function gpsError(error){
+  const message=error.code===1
+    ?'Location permission is blocked. Open browser site permissions for this HTTPS address, set Location to Allow, and enable precise location.'
+    :error.code===2
+      ?'Location is unavailable. Turn on phone location/GPS and try outdoors.'
+      :'Location timed out. Try again outdoors or use tap-to-place/coordinates.';
+  statusEl.textContent=message;
+  gpsBtn.disabled=false;
+  stopBtn.disabled=true;
+}
+async function describePermission(){
+  if(!navigator.permissions?.query)return;
+  try{
+    const result=await navigator.permissions.query({name:'geolocation'});
+    if(result.state==='denied'){
+      statusEl.textContent='Browser permission is currently denied. Change this site’s Location permission to Allow.';
+    }
+  }catch(error){}
+}
+function startGps(){
+  describePermission();
+  if(!window.isSecureContext||location.protocol!=='https:'){
+    statusEl.textContent='Live GPS requires the published HTTPS address. This downloaded/local copy supports tapping and coordinates only.';
+    return;
+  }
+  if(!navigator.geolocation){
+    statusEl.textContent='This browser does not provide geolocation.';
+    return;
+  }
+  gpsBtn.disabled=true;
+  stopBtn.disabled=false;
+  statusEl.textContent='Requesting precise location…';
+  watchId=navigator.geolocation.watchPosition(gpsSuccess,gpsError,{
+    enableHighAccuracy:true,maximumAge:1500,timeout:20000
+  });
+}
+function stopGps(){
+  if(watchId!==null)navigator.geolocation.clearWatch(watchId);
+  watchId=null;
+  gpsBtn.disabled=false;
+  stopBtn.disabled=true;
+  statusEl.textContent='Live GPS stopped. Your last position and trail remain visible.';
+}
+
+gpsBtn.addEventListener('click',startGps);
+stopBtn.addEventListener('click',stopGps);
+tapBtn.addEventListener('click',()=>{
+  tapMode=!tapMode;
+  tapBtn.classList.toggle('active',tapMode);
+  statusEl.textContent=tapMode?'Tap anywhere on the map to place your position and extend the manual trail.':'Tap-to-place disabled.';
+});
+followBtn.addEventListener('click',()=>{
+  follow=!follow;
+  followBtn.classList.toggle('active',follow);
+  followBtn.textContent=`Follow: ${follow?'on':'off'}`;
+  if(follow&&lastPosition)map.panTo([lastPosition.lat,lastPosition.lng]);
+});
+accuracyBtn.addEventListener('click',()=>{
+  showAccuracy=!showAccuracy;
+  accuracyBtn.classList.toggle('active',showAccuracy);
+  accuracyBtn.textContent=`Accuracy: ${showAccuracy?'on':'off'}`;
+  if(lastPosition)placePosition(lastPosition.lat,lastPosition.lng,lastPosition.accuracy,lastPosition.mode,false);
+});
+map.on('click',event=>{
+  if(tapMode)placePosition(event.latlng.lat,event.latlng.lng,null,'Tapped position',true);
+});
+
+function parseCoordinates(value){
+  const matches=value.match(/[-+]?\d{1,3}(?:[.,]\d+)?/g);
+  if(!matches||matches.length<2)return null;
+  let a=Number(matches[0].replace(',','.')),b=Number(matches[1].replace(',','.'));
+  if(Math.abs(a)<20&&Math.abs(b)>40)[a,b]=[b,a];
+  if(a<52.2||a>52.5||b<4.6||b>5.2)return null;
+  return {lat:a,lng:b};
+}
+document.getElementById('coordBtn').addEventListener('click',()=>{
+  const parsed=parseCoordinates(document.getElementById('coordInput').value);
+  if(!parsed){
+    statusEl.textContent='Enter Amsterdam coordinates such as 52.372200, 4.900370.';
+    return;
+  }
+  placePosition(parsed.lat,parsed.lng,null,'Manual coordinates',true);
+});
+document.getElementById('coordInput').addEventListener('keydown',event=>{
+  if(event.key==='Enter')document.getElementById('coordBtn').click();
+});
+document.getElementById('pauseTrailBtn').addEventListener('click',event=>{
+  trailPaused=!trailPaused;
+  event.currentTarget.textContent=trailPaused?'Resume trail':'Pause trail';
+  statusEl.textContent=trailPaused?'Trail recording paused.':'Trail recording resumed.';
+});
+document.getElementById('clearTrailBtn').addEventListener('click',()=>{
+  trailPoints=[];
+  renderTrail();
+  statusEl.textContent='Walking trail cleared.';
+});
+document.getElementById('exportTrailBtn').addEventListener('click',()=>{
+  if(trailPoints.length<2){
+    statusEl.textContent='Record at least two trail points before exporting.';
+    return;
+  }
+  const points=trailPoints.map(point=>
+    `<trkpt lat="${point.lat}" lon="${point.lng}"><time>${new Date(point.time||Date.now()).toISOString()}</time></trkpt>`
+  ).join('');
+  const gpx=`<?xml version="1.0" encoding="UTF-8"?><gpx version="1.1" creator="Amsterdam Visitor Map" xmlns="http://www.topografix.com/GPX/1/1"><trk><name>Amsterdam walking trail</name><trkseg>${points}</trkseg></trk></gpx>`;
+  const url=URL.createObjectURL(new Blob([gpx],{type:'application/gpx+xml'}));
+  const link=document.createElement('a');
+  link.href=url;link.download='amsterdam-walking-trail.gpx';link.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+});
+
+function toggleGroup(buttonId,group){
+  const button=document.getElementById(buttonId);
+  button.addEventListener('click',()=>{
+    if(map.hasLayer(group)){map.removeLayer(group);button.classList.remove('active');}
+    else{map.addLayer(group);button.classList.add('active');}
+  });
+}
+toggleGroup('redBtn',groups.red);
+toggleGroup('blueBtn',groups.blue);
+toggleGroup('adultMuseumBtn',groups.adultMuseum);
+toggleGroup('adultShopBtn',groups.adultShop);
+toggleGroup('adultShowBtn',groups.adultShow);
+toggleGroup('foodBtn',groups.food);
+toggleGroup('landmarkBtn',groups.landmarks);
+toggleGroup('transportBtn',groups.transport);
+
+document.getElementById('centreBtn').addEventListener('click',()=>map.setView([52.3718,4.8925],15));
+document.getElementById('wallenBtn').addEventListener('click',()=>map.setView([52.3737,4.8988],18));
+document.getElementById('hotelBtn').addEventListener('click',()=>{
+  map.setView([DATA.hotel.lat,DATA.hotel.lon],17);
+  hotelMarker.openPopup();
+});
+document.getElementById('allBtn').addEventListener('click',()=>map.fitBounds(allBounds.pad(.05)));
+
+function showSearch(){
+  const query=document.getElementById('searchInput').value.trim().toLowerCase();
+  const panel=document.getElementById('searchResults');
+  panel.innerHTML='';
+  if(!query)return;
+  const matches=searchable.filter(item=>
+    `${item.name} ${item.address} ${item.category}`.toLowerCase().includes(query)
+  ).slice(0,20);
+  if(!matches.length){
+    panel.innerHTML='<div class="note">No matching mapped place.</div>';
+    return;
+  }
+  for(const item of matches){
+    const button=document.createElement('button');
+    button.type='button';
+    button.className='result';
+    button.innerHTML=`<strong>${item.name}</strong><small>${item.category}${item.address?' · '+item.address:''}</small>`;
+    button.addEventListener('click',()=>{
+      map.setView([item.lat,item.lon],Math.max(map.getZoom(),17));
+      item.marker.openPopup();
+    });
+    panel.appendChild(button);
+  }
+}
+document.getElementById('searchBtn').addEventListener('click',showSearch);
+document.getElementById('searchInput').addEventListener('input',showSearch);
+document.getElementById('searchInput').addEventListener('keydown',event=>{
+  if(event.key==='Enter')showSearch();
+});
+
+const httpsNotice=document.getElementById('httpsNotice');
+if(window.isSecureContext&&location.protocol==='https:'){
+  httpsNotice.innerHTML='<strong>HTTPS active:</strong> live GPS and movement tracking are available after you grant precise-location permission.';
+  statusEl.textContent='HTTPS active. Tap Start live GPS and allow precise location, or use tap/coordinates.';
+}else{
+  httpsNotice.className='notice';
+  httpsNotice.innerHTML='<strong>Not running over HTTPS:</strong> live GPS may be blocked. Open the published GitHub Pages version; tap and coordinates remain available in this copy.';
+  statusEl.textContent='Local/downloaded copy detected. Use the published HTTPS page for live GPS.';
+}
+
+trailPoints=safeLoad('ams-final-trail',[]).filter(point=>Number.isFinite(point.lat)&&Number.isFinite(point.lng));
+renderTrail();
+const restored=safeLoad('ams-final-position',null);
+if(restored&&Number.isFinite(restored.lat)&&Number.isFinite(restored.lng)){
+  placePosition(restored.lat,restored.lng,restored.accuracy,restored.mode||'Saved position',false);
+}
+updateTrackingVisuals();
+</script>
+</body>
+</html>
