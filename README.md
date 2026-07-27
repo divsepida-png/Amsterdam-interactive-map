@@ -2,11 +2,11 @@
 
 A high-contrast, mobile-responsive Amsterdam visitor map built around a GPU-rendered MapLibre vector engine.
 
-## Open the V2 map
+## Open the fixed V2 map
 
-https://raw.githack.com/divsepida-png/Amsterdam-interactive-map/dc1b0968ad4cdc6af9b0d3538c3ad9eb9477577a/index.html
+https://rawcdn.githack.com/divsepida-png/Amsterdam-interactive-map/d344c04b4b253a5f61033982d85dcfe44aa07d65/index.html
 
-The immutable HTTPS build uses a lightweight cached bootstrap. On first opening it downloads seven compressed source parts in parallel, verifies and decompresses the application, then stores the reconstructed interface in local browser storage for faster repeat loading.
+This corrected build starts from a normal application page. It no longer replaces the browser document during startup. The control interface appears immediately, the verified compressed map source is loaded in the background, the late-load event bug is patched before execution, and the reconstructed map logic is cached for faster repeat openings.
 
 ## V2 highlights
 
@@ -26,9 +26,11 @@ The immutable HTTPS build uses a lightweight cached bootstrap. On first opening 
 
 ## Source layout
 
-- `index.html` — cached V2 HTTPS bootstrap
-- `site-chunks/part-000.txt` through `part-006.txt` — compressed reproducible application source
-- `site.html.gz.b64` — previous assembled source retained for compatibility
+- `index.html` — direct application shell
+- `styles.css` — high-contrast responsive interface
+- `data.js` — mapped locations and route data
+- `app.js` — deterministic startup and cached map-logic loader
+- `site-chunks/part-000.txt` through `part-006.txt` — verified compressed application source
 - `HOSTING_STATUS.md` — current published-build record
 
 The frontage blocks and highlighted businesses are navigation references, not cadastral building surveys. Adult and regulated venues are 18+. Carry identification, follow Dutch law and venue guidance, and never photograph or film sex workers or their windows.
