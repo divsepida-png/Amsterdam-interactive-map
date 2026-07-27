@@ -4,109 +4,154 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#081321">
-<title>Loading Amsterdam Interactive Map V2</title>
-<style>
-:root{color-scheme:dark}*{box-sizing:border-box}html,body{height:100%;margin:0;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:#081321;color:#f5f8fb}body{display:grid;place-items:center;padding:24px}.loader{width:min(460px,100%);background:#10253b;border:1px solid #31516c;border-radius:16px;padding:22px;box-shadow:0 18px 60px rgba(0,0,0,.35)}h1{font-size:19px;margin:0 0 7px}.sub{color:#b6c5d2;font-size:12px;line-height:1.45}.track{height:9px;background:#07111c;border-radius:999px;overflow:hidden;margin:18px 0 9px}.bar{height:100%;width:8%;background:linear-gradient(90deg,#087df0,#18c5d9);border-radius:inherit;transition:width .18s ease}.row{display:flex;justify-content:space-between;gap:10px;color:#aebdca;font-size:11px}.error{display:none;margin-top:15px;padding:10px;border-left:4px solid #e21c32;background:#35141c;border-radius:7px;font-size:12px;line-height:1.4}button{display:none;width:100%;margin-top:12px;padding:10px;border:0;border-radius:9px;background:#087df0;color:#fff;font:inherit;font-weight:850}</style>
+<title>Amsterdam live visitor map — high-contrast vector edition</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="preconnect" href="https://tiles.openfreemap.org" crossorigin>
+<link rel="dns-prefetch" href="//photon.komoot.io">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5.16.0/dist/maplibre-gl.css"
+      onerror="this.onerror=null;this.href='https://unpkg.com/maplibre-gl@5.16.0/dist/maplibre-gl.css'">
+<link rel="stylesheet" href="styles.css">
+<script defer src="https://cdn.jsdelivr.net/npm/maplibre-gl@5.16.0/dist/maplibre-gl.js"
+        onerror="this.onerror=null;this.src='https://unpkg.com/maplibre-gl@5.16.0/dist/maplibre-gl.js'"></script>
+<script defer src="data.js"></script>
+<script defer src="app.js"></script>
 </head>
 <body>
-<main class="loader">
-  <h1>Amsterdam Interactive Map</h1>
-  <div class="sub">Preparing the high-contrast vector map, live tracking, landmarks and navigation controls.</div>
-  <div class="track"><div id="bar" class="bar"></div></div>
-  <div class="row"><span id="stage">Checking local cache…</span><strong id="percent">8%</strong></div>
-  <div id="error" class="error"></div>
-  <button id="retry" type="button">Retry loading</button>
-</main>
-<script>
-(() => {
-  'use strict';
-  const VERSION='amsterdam-vector-v2-20260726';
-  const CACHE_KEY=`${VERSION}:html`;
-  const PARTS=Array.from({length:7},(_,index)=>`site-chunks/part-${String(index).padStart(3,'0')}.txt`);
-  const bar=document.getElementById('bar');
-  const stage=document.getElementById('stage');
-  const percent=document.getElementById('percent');
-  const errorBox=document.getElementById('error');
-  const retry=document.getElementById('retry');
+<div id="app">
+  <main id="map">
+    <div id="mapHint"></div>
+  </main>
+  <aside id="dock" aria-label="Map controls">
+    <div id="dockHeader">
+      <div class="brand"><strong>Amsterdam live visitor map</strong><span class="version">VECTOR V2</span></div>
+      <div id="status" aria-live="polite">Loading high-contrast vector map…</div>
+      <div class="liveRow">
+        <div class="metric"><span>Distance</span><strong id="distanceValue">0 m</strong></div>
+        <div class="metric"><span>Accuracy</span><strong id="accuracyValue">—</strong></div>
+        <div class="metric"><span>Mode</span><strong id="modeValue">Ready</strong></div>
+      </div>
+      <button id="gpsButton" type="button">START GPS</button>
+    </div>
 
-  function progress(value,message){
-    const bounded=Math.max(8,Math.min(100,value));
-    bar.style.width=`${bounded}%`;
-    percent.textContent=`${Math.round(bounded)}%`;
-    stage.textContent=message;
-  }
-  function valid(html){
-    return typeof html==='string'&&html.includes('VECTOR V2')&&html.includes('maplibregl.Map')&&html.includes('navigator.geolocation.watchPosition');
-  }
-  function bytesFromBase64(value){
-    const clean=value.replace(/\s+/g,'');
-    const output=new Uint8Array(Math.floor(clean.length*3/4));
-    let offset=0;
-    for(let start=0;start<clean.length;start+=32768){
-      const block=atob(clean.slice(start,start+32768));
-      for(let index=0;index<block.length;index++)output[offset++]=block.charCodeAt(index);
-    }
-    return output.subarray(0,offset);
-  }
-  async function decompress(bytes){
-    if('DecompressionStream' in window){
-      const stream=new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
-      return new Response(stream).text();
-    }
-    progress(78,'Loading compatibility decompressor…');
-    await new Promise((resolve,reject)=>{
-      const script=document.createElement('script');
-      script.src='https://unpkg.com/pako@2.1.0/dist/pako.min.js';
-      script.onload=resolve;script.onerror=()=>reject(new Error('Compatibility decompressor failed to load.'));
-      document.head.appendChild(script);
-    });
-    return window.pako.ungzip(bytes,{to:'string'});
-  }
-  function launch(html){
-    progress(100,'Launching map…');
-    try{localStorage.setItem(CACHE_KEY,html)}catch{}
-    setTimeout(()=>{
-      document.open();
-      document.write(html);
-      document.close();
-    },60);
-  }
-  async function load(){
-    errorBox.style.display='none';retry.style.display='none';
-    try{
-      const cached=localStorage.getItem(CACHE_KEY);
-      if(valid(cached)){
-        progress(95,'Opening cached application…');
-        launch(cached);
-        return;
-      }
-    }catch{}
+    <nav id="tabBar">
+      <button class="tab active" data-panel="locate"><span class="ico">◎</span>Locate</button>
+      <button class="tab" data-panel="explore"><span class="ico">◇</span>Explore</button>
+      <button class="tab" data-panel="route"><span class="ico">➜</span>Route</button>
+      <button class="tab" data-panel="layers"><span class="ico">▱</span>Layers</button>
+      <button class="tab" data-panel="base"><span class="ico">⌂</span>Base</button>
+    </nav>
 
-    progress(18,'Downloading optimised application…');
-    const results=await Promise.all(PARTS.map(async(path,index)=>{
-      const response=await fetch(path,{cache:'force-cache'});
-      if(!response.ok)throw new Error(`Application part ${index+1} returned HTTP ${response.status}.`);
-      progress(18+((index+1)/PARTS.length)*42,`Downloaded part ${index+1} of ${PARTS.length}…`);
-      return response.text();
-    }));
-    progress(66,'Reconstructing application…');
-    const bytes=bytesFromBase64(results.join(''));
-    progress(74,'Decompressing vector interface…');
-    const html=await decompress(bytes);
-    if(!valid(html))throw new Error('The reconstructed application failed its integrity check.');
-    progress(92,'Application verified…');
-    launch(html);
-  }
-  function fail(error){
-    console.error(error);
-    stage.textContent='Loading stopped';
-    errorBox.textContent=`${error.message} Check the internet connection and retry.`;
-    errorBox.style.display='block';
-    retry.style.display='block';
-  }
-  retry.addEventListener('click',()=>load().catch(fail));
-  load().catch(fail);
-})();
-</script>
+    <div id="panelHost">
+      <section class="panel active" id="panel-locate">
+        <h2>Live tracking</h2>
+        <div class="grid2">
+          <button class="btn primary" id="centreUserButton">Centre on me</button>
+          <button class="btn active" id="followButton">Follow on</button>
+          <button class="btn" id="pauseTrailButton">Pause trail</button>
+          <button class="btn danger" id="clearTrailButton">Clear trail</button>
+        </div>
+        <div class="card">
+          <strong>Smooth tracking</strong>
+          <small>GPS positions are filtered, rendered through animation frames, and added to the path only after meaningful movement. The camera does not recenter on every reading.</small>
+        </div>
+        <div class="actions">
+          <button class="btn" id="zoomInButton">Zoom +</button>
+          <button class="btn" id="zoomOutButton">Zoom −</button>
+          <button class="btn" id="cityViewButton">City view</button>
+          <button class="btn" id="wallenViewButton">De Wallen</button>
+        </div>
+      </section>
+
+      <section class="panel" id="panel-explore">
+        <h2>Find mapped places</h2>
+        <div class="field">
+          <label for="placeSearch">Search name, category or cuisine</label>
+          <input id="placeSearch" type="search" placeholder="e.g. Rijksmuseum, Thai, smartshop">
+        </div>
+        <div id="placeResults"></div>
+        <h3>Selected place</h3>
+        <div id="placeDetail"><div id="detailEmpty">Tap a coloured building, landmark or search result.</div></div>
+      </section>
+
+      <section class="panel" id="panel-route">
+        <h2>Waypoints and navigation</h2>
+        <div class="grid2">
+          <button class="btn primary" id="dropWaypointButton">Drop waypoint</button>
+          <button class="btn" id="clearWaypointButton">Clear active</button>
+          <button class="btn success" id="googleWaypointButton">Google Maps</button>
+          <button class="btn success" id="googleBaseButton">Route to base</button>
+        </div>
+        <div class="card">
+          <strong id="activeWaypointTitle">No active waypoint</strong>
+          <small id="activeWaypointText">Press “Drop waypoint”, then tap the map.</small>
+        </div>
+        <h3>Saved waypoints</h3>
+        <div id="waypointList"></div>
+      </section>
+
+      <section class="panel" id="panel-layers">
+        <h2>High-contrast layers</h2>
+        <button class="toggle on" data-layer="red"><span>Red-light building blocks</span><b>✓</b></button>
+        <button class="toggle on" data-layer="blue"><span>Blue-light reference blocks</span><b>✓</b></button>
+        <button class="toggle on" data-layer="coffee"><span>Cannabis coffeeshops — green</span><b>✓</b></button>
+        <button class="toggle on" data-layer="smart"><span>Smartshops — pink</span><b>✓</b></button>
+        <button class="toggle on" data-layer="food"><span>Value cuisine picks — yellow</span><b>✓</b></button>
+        <button class="toggle on" data-layer="adult"><span>Adult museums / shops / shows</span><b>✓</b></button>
+        <button class="toggle on" data-layer="landmarks"><span>Landmarks and tourist places</span><b>✓</b></button>
+        <button class="toggle on" data-layer="transit"><span>Hotel tram / metro / night routes</span><b>✓</b></button>
+        <button class="toggle" data-layer="accuracy"><span>GPS accuracy area</span><b>×</b></button>
+
+        <h3>Key</h3>
+        <div class="legend">
+          <i style="background:#e21c32"></i><span>Red-light frontage blocks</span>
+          <i style="background:#087df0"></i><span>Blue-light reference blocks</span>
+          <i style="background:#00a65a"></i><span>Licensed cannabis coffeeshop</span>
+          <i style="background:#ef3aa8"></i><span>Smartshop / legal truffle retailer</span>
+          <i style="background:#ffd400"></i><span>Curated value cuisine building; badge identifies cuisine</span>
+          <i style="background:#6f45a8"></i><span>Sex / erotic museum</span>
+          <i style="background:#ff7a1a"></i><span>Adult show / attraction</span>
+          <i style="background:#2a3f54"></i><span>Major landmark building</span>
+          <i class="line" style="border-color:#ff6900"></i><span>Tram 17 toward Surinameplein</span>
+          <i class="line" style="border-color:#008d84"></i><span>Tram 1 toward Surinameplein</span>
+          <i class="line" style="border-color:#1748bd"></i><span>Metro 51 toward Lelylaan</span>
+        </div>
+        <div class="card">
+          <strong>Respect and legality</strong>
+          <small>Adult and regulated venues are 18+. Carry ID, follow Dutch law and staff guidance, and never photograph or film sex workers or their windows.</small>
+        </div>
+      </section>
+
+      <section class="panel" id="panel-base">
+        <h2>Base / hotel location</h2>
+        <div class="card">
+          <strong id="baseName">WestCord Fashion Hotel Amsterdam</strong>
+          <small id="baseAddress">Hendrikje Stoffelsstraat 1, 1058 GC Amsterdam</small>
+        </div>
+        <div class="field">
+          <label for="baseSearch">Move base to a new address</label>
+          <input id="baseSearch" type="search" placeholder="Enter an Amsterdam address">
+        </div>
+        <button class="btn primary" id="baseSearchButton">Find address</button>
+        <div id="baseResults"></div>
+        <div class="field">
+          <label for="baseCoords">Coordinate fallback</label>
+          <input id="baseCoords" inputmode="decimal" placeholder="52.357545, 4.844081">
+        </div>
+        <div class="grid2">
+          <button class="btn" id="baseCoordsButton">Set coordinates</button>
+          <button class="btn" id="resetBaseButton">Reset hotel</button>
+        </div>
+      </section>
+    </div>
+
+    <div id="quickBar">
+      <button class="quick" id="quickLocate">Locate</button>
+      <button class="quick" id="quickWaypoint">Waypoint</button>
+      <button class="quick" id="quickBase">Base route</button>
+      <button class="quick" id="quickLayers">Layers</button>
+    </div>
+  </aside>
+</div>
+
 </body>
 </html>
