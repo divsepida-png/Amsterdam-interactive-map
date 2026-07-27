@@ -3,155 +3,125 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<meta name="theme-color" content="#081321">
-<title>Amsterdam live visitor map — high-contrast vector edition</title>
-<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-<link rel="preconnect" href="https://tiles.openfreemap.org" crossorigin>
-<link rel="dns-prefetch" href="//photon.komoot.io">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5.16.0/dist/maplibre-gl.css"
-      onerror="this.onerror=null;this.href='https://unpkg.com/maplibre-gl@5.16.0/dist/maplibre-gl.css'">
-<link rel="stylesheet" href="styles.css">
-<script defer src="https://cdn.jsdelivr.net/npm/maplibre-gl@5.16.0/dist/maplibre-gl.js"
-        onerror="this.onerror=null;this.src='https://unpkg.com/maplibre-gl@5.16.0/dist/maplibre-gl.js'"></script>
-<script defer src="data.js"></script>
-<script defer src="app.js"></script>
+<meta name="theme-color" content="#071727">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Amsterdam Interactive Map — Android V3 Direct</title>
+<link rel="stylesheet" href="android-v3.css">
 </head>
 <body>
 <div id="app">
-  <main id="map">
-    <div id="mapHint"></div>
-  </main>
-  <aside id="dock" aria-label="Map controls">
-    <div id="dockHeader">
-      <div class="brand"><strong>Amsterdam live visitor map</strong><span class="version">VECTOR V2</span></div>
-      <div id="status" aria-live="polite">Loading high-contrast vector map…</div>
-      <div class="liveRow">
-        <div class="metric"><span>Distance</span><strong id="distanceValue">0 m</strong></div>
-        <div class="metric"><span>Accuracy</span><strong id="accuracyValue">—</strong></div>
-        <div class="metric"><span>Mode</span><strong id="modeValue">Ready</strong></div>
+  <div id="mapWrap">
+    <div id="map" aria-label="Interactive Amsterdam map"></div>
+    <div id="fallback">
+      <div class="fallbackCard">
+        <h1>Map engine could not start</h1>
+        <p id="fallbackText">The browser could not load the mobile map library. Navigation links and the downloadable version remain available.</p>
+        <a id="fallbackHotel" href="#" target="_blank" rel="noopener">Open hotel in Google Maps</a>
+        <a href="https://www.openstreetmap.org/#map=13/52.3695/4.8890" target="_blank" rel="noopener">Open Amsterdam in OpenStreetMap</a>
+      </div>
+    </div>
+    <div id="toast"></div>
+  </div>
+
+  <aside id="dock">
+    <div id="head">
+      <div>
+        <div id="status" aria-live="polite">Starting Android-safe map…</div>
+        <div class="metrics">
+          <div class="metric"><span>Distance</span><strong id="distanceValue">0 m</strong></div>
+          <div class="metric"><span>Accuracy</span><strong id="accuracyValue">—</strong></div>
+          <div class="metric"><span>Mode</span><strong id="modeValue">Starting</strong></div>
+        </div>
       </div>
       <button id="gpsButton" type="button">START GPS</button>
     </div>
-
-    <nav id="tabBar">
-      <button class="tab active" data-panel="locate"><span class="ico">◎</span>Locate</button>
-      <button class="tab" data-panel="explore"><span class="ico">◇</span>Explore</button>
-      <button class="tab" data-panel="route"><span class="ico">➜</span>Route</button>
-      <button class="tab" data-panel="layers"><span class="ico">▱</span>Layers</button>
-      <button class="tab" data-panel="base"><span class="ico">⌂</span>Base</button>
+    <nav id="tabs">
+      <button class="tab active" data-panel="locate"><b>◎</b>Locate</button>
+      <button class="tab" data-panel="explore"><b>◇</b>Explore</button>
+      <button class="tab" data-panel="route"><b>➜</b>Route</button>
+      <button class="tab" data-panel="layers"><b>▱</b>Layers</button>
+      <button class="tab" data-panel="base"><b>⌂</b>Base</button>
     </nav>
-
-    <div id="panelHost">
-      <section class="panel active" id="panel-locate">
-        <h2>Live tracking</h2>
-        <div class="grid2">
-          <button class="btn primary" id="centreUserButton">Centre on me</button>
-          <button class="btn active" id="followButton">Follow on</button>
-          <button class="btn" id="pauseTrailButton">Pause trail</button>
-          <button class="btn danger" id="clearTrailButton">Clear trail</button>
-        </div>
-        <div class="card">
-          <strong>Smooth tracking</strong>
-          <small>GPS positions are filtered, rendered through animation frames, and added to the path only after meaningful movement. The camera does not recenter on every reading.</small>
-        </div>
-        <div class="actions">
-          <button class="btn" id="zoomInButton">Zoom +</button>
-          <button class="btn" id="zoomOutButton">Zoom −</button>
-          <button class="btn" id="cityViewButton">City view</button>
-          <button class="btn" id="wallenViewButton">De Wallen</button>
-        </div>
-      </section>
-
-      <section class="panel" id="panel-explore">
-        <h2>Find mapped places</h2>
-        <div class="field">
-          <label for="placeSearch">Search name, category or cuisine</label>
-          <input id="placeSearch" type="search" placeholder="e.g. Rijksmuseum, Thai, smartshop">
-        </div>
-        <div id="placeResults"></div>
-        <h3>Selected place</h3>
-        <div id="placeDetail"><div id="detailEmpty">Tap a coloured building, landmark or search result.</div></div>
-      </section>
-
-      <section class="panel" id="panel-route">
-        <h2>Waypoints and navigation</h2>
-        <div class="grid2">
-          <button class="btn primary" id="dropWaypointButton">Drop waypoint</button>
-          <button class="btn" id="clearWaypointButton">Clear active</button>
-          <button class="btn success" id="googleWaypointButton">Google Maps</button>
-          <button class="btn success" id="googleBaseButton">Route to base</button>
-        </div>
-        <div class="card">
-          <strong id="activeWaypointTitle">No active waypoint</strong>
-          <small id="activeWaypointText">Press “Drop waypoint”, then tap the map.</small>
-        </div>
-        <h3>Saved waypoints</h3>
-        <div id="waypointList"></div>
-      </section>
-
-      <section class="panel" id="panel-layers">
-        <h2>High-contrast layers</h2>
-        <button class="toggle on" data-layer="red"><span>Red-light building blocks</span><b>✓</b></button>
-        <button class="toggle on" data-layer="blue"><span>Blue-light reference blocks</span><b>✓</b></button>
-        <button class="toggle on" data-layer="coffee"><span>Cannabis coffeeshops — green</span><b>✓</b></button>
-        <button class="toggle on" data-layer="smart"><span>Smartshops — pink</span><b>✓</b></button>
-        <button class="toggle on" data-layer="food"><span>Value cuisine picks — yellow</span><b>✓</b></button>
-        <button class="toggle on" data-layer="adult"><span>Adult museums / shops / shows</span><b>✓</b></button>
-        <button class="toggle on" data-layer="landmarks"><span>Landmarks and tourist places</span><b>✓</b></button>
-        <button class="toggle on" data-layer="transit"><span>Hotel tram / metro / night routes</span><b>✓</b></button>
-        <button class="toggle" data-layer="accuracy"><span>GPS accuracy area</span><b>×</b></button>
-
-        <h3>Key</h3>
-        <div class="legend">
-          <i style="background:#e21c32"></i><span>Red-light frontage blocks</span>
-          <i style="background:#087df0"></i><span>Blue-light reference blocks</span>
-          <i style="background:#00a65a"></i><span>Licensed cannabis coffeeshop</span>
-          <i style="background:#ef3aa8"></i><span>Smartshop / legal truffle retailer</span>
-          <i style="background:#ffd400"></i><span>Curated value cuisine building; badge identifies cuisine</span>
-          <i style="background:#6f45a8"></i><span>Sex / erotic museum</span>
-          <i style="background:#ff7a1a"></i><span>Adult show / attraction</span>
-          <i style="background:#2a3f54"></i><span>Major landmark building</span>
-          <i class="line" style="border-color:#ff6900"></i><span>Tram 17 toward Surinameplein</span>
-          <i class="line" style="border-color:#008d84"></i><span>Tram 1 toward Surinameplein</span>
-          <i class="line" style="border-color:#1748bd"></i><span>Metro 51 toward Lelylaan</span>
-        </div>
-        <div class="card">
-          <strong>Respect and legality</strong>
-          <small>Adult and regulated venues are 18+. Carry ID, follow Dutch law and staff guidance, and never photograph or film sex workers or their windows.</small>
-        </div>
-      </section>
-
-      <section class="panel" id="panel-base">
-        <h2>Base / hotel location</h2>
-        <div class="card">
-          <strong id="baseName">WestCord Fashion Hotel Amsterdam</strong>
-          <small id="baseAddress">Hendrikje Stoffelsstraat 1, 1058 GC Amsterdam</small>
-        </div>
-        <div class="field">
-          <label for="baseSearch">Move base to a new address</label>
-          <input id="baseSearch" type="search" placeholder="Enter an Amsterdam address">
-        </div>
-        <button class="btn primary" id="baseSearchButton">Find address</button>
-        <div id="baseResults"></div>
-        <div class="field">
-          <label for="baseCoords">Coordinate fallback</label>
-          <input id="baseCoords" inputmode="decimal" placeholder="52.357545, 4.844081">
-        </div>
-        <div class="grid2">
-          <button class="btn" id="baseCoordsButton">Set coordinates</button>
-          <button class="btn" id="resetBaseButton">Reset hotel</button>
-        </div>
-      </section>
-    </div>
-
-    <div id="quickBar">
-      <button class="quick" id="quickLocate">Locate</button>
-      <button class="quick" id="quickWaypoint">Waypoint</button>
-      <button class="quick" id="quickBase">Base route</button>
-      <button class="quick" id="quickLayers">Layers</button>
-    </div>
   </aside>
+
+  <div id="panelHost">
+    <section class="panel active" id="panel-locate">
+      <h2>Live tracking</h2>
+      <div class="grid2">
+        <button class="btn primary" id="centreUser">Centre on me</button>
+        <buttton class="btn active" id="followButton">Follow on</button>
+        <button class="btn" id="pauseTrail">Pause trail</button>
+        <button class="btn danger" id="clearTrail">Clear trail</button>
+      </div>
+      <div class="card"><strong>Android smooth mode</strong><small>Zoom animations and tile fades are disabled. GPSS points are filtered and the trail only updates after meaningful movement.</small></div>
+      <div class="grid2">
+        <button class="btn" id="cityView">City view</button>
+        <button class="btn" id="wallenView">De Wallen</button>
+      </div>
+    </section>
+
+    <section class="panel" id="panel-explore">
+      <h2>Explore places</h2>
+      <div class="field"><label for="searchInput">Name, category or cuisine</label><input id="searchInput" type="search" placeholder="Thai, museum, coffeeshop…"></div>
+      <div id="searchResults"></div>
+      <div id="selectedPlace"></div>
+    </section>
+
+    <section class="panel" id="panel-route">
+      <h2>Waypoint and navigation</h2>
+      <div class="grid2">
+        <button class="btn primary" id="dropWaypoint">Drop waypoint</button>
+        <button class="btn" id="clearWaypoint">Clear active</button>
+        <button class="btn success" id="routeWaypoint">Google Maps</button>
+        <button class="btn success" id="routeBase">Route to base</button>
+      </div>
+      <div class="card"><strong id="waypointTitle">No active waypoint</strong><small id="waypointText">Press Drop waypoint, close the menu, then tap the map.</small></div>
+      <h3>Saved waypoints</h3><div id="waypointList"></div>
+    </section>
+
+    <section class="panel" id="panel-layers">
+      <h2>High-contrast layers</h2>
+      <button class="toggle on" data-layer="red"><span>Red-light frontage blocks</span><b>✓</b></button>
+      <button class="toggle on" data-layer="blue"><span>Blue-light reference blocks</span><b>✓</b></button>
+      <button class="toggle on" data-layer="coffee"><span>Cannabis coffeeshops — green</span><b>✓</b></button>
+      <button class="toggle on" data-layer="smart"><span>Smartshops ℔ pink</span><b>✓</b></button>
+      <button class="toggle on" data-layer="food"><span>Value cuisine picks ℔ yellow</span><b>✓</b></button>
+      <button class="toggle on" data-layer="adult"><span>Adult museums, shops and shows</span><b>✓</b></button>
+      <button class="toggle on" data-layer="landmarks"><span>Landmarks and monuments</span><b>✓</b></button>
+      <button class="toggle on" data-layer="transit"><span>Hotel transport routes</span><b>✓</b></button>
+      <button class="toggle" data-layer="accuracy"><span>GPS accuracy circle</span><b>×</b></button>
+      <h3>Key</h3>
+      <div class="legend">
+        <i style="background:#e21c32"></i><span>Red-light frontage</span>
+        <i style="background:#087df0"></i><span>Blue-light reference frontage</span>
+        <i style="background:#00a65a"></i><span>Licensed cannabis coffeeshop</span>
+        <i style="background:#ef3aa8"></i><span>Smartshop / legal truffle retailer</span>
+        <i style="background:#ffd400"></i><span>Curated value cuisine</span>
+        <i style="background:#283f53"></i><span>Major landmark building</span>
+      </div>
+      <div class="card"><strong>Respect and legality</strong><small>Adult and regulated venues are 18+. Carry ID, follow Dutch law and staff guidance, and never photograph sex workers or their windows.</small></div>
+    </section>
+
+    <section class="panel" id="panel-base">
+      <h2>Base / hotel</h2>
+      <div class="card"><strong id="baseName"></strong><small id="baseAddress"></small></div>
+      <div class="field"><label for="baseSearch">Move base to another address</label><input id="baseSearch" type="search" placeholder="Amsterdam address"></div>
+      <button class="btn primary" id="findBase">Find address</button>
+      <div id="baseResults"></div>
+      <div class="field"><label for="baseCoords">Coordinate fallback</label><input id="baseCoords" inputmode="decimal" placeholder="52.357545, 4.844081"></div>
+      <div class="grid2"><button class="btn" id="setCoords">Set coordinates</button><button class="btn" id="resetBase">Reset hotel</button></div>
+    </section>
+  </div>
 </div>
 
+<script defer src="android-v3-data-1.js"></script>
+<script defer src="android-v3-data-2.js"></script>
+<script defer src="android-v3-data-3.js"></script>
+<script defer src="android-v3-data-4.js"></script>
+<script defer src="android-v3-app-1.js"></script>
+<script defer src="android-v3-app-2.js"></script>
+<script defer src="android-v3-app-3.js"></script>
+<script defer src="android-v3-app-4.js"></script>
+<script defer src="android-v3-app-5.js"></script>
 </body>
 </html>

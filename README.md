@@ -1,36 +1,20 @@
-# Amsterdam Interactive Map V2
+# Amsterdam Interactive Map — Android V3
 
-A high-contrast, mobile-responsive Amsterdam visitor map built around a GPU-rendered MapLibre vector engine.
+A direct static mobile-first Amsterdam visitor map designed for Android Chrome.
 
-## Open the fixed V2 map
+## Architecture
 
-https://rawcdn.githack.com/divsepida-png/Amsterdam-interactive-map/d344c04b4b253a5f61033982d85dcfe44aa07d65/index.html
+- ordinary HTML, CSS and JavaScript files
+- Leaflet canvas overlays rather than WebGL
+- no compressed bootstrap, runtime reconstruction, document rewriting or eval
+- zoom and tile fade animations disabled
+- portrait bottom control dock and landscape side dock
+- graceful fallback with direct Google Maps and OpenStreetMap links when both Leaflet mirrors fail
 
-This corrected build starts from a normal application page. It no longer replaces the browser document during startup. The control interface appears immediately, the verified compressed map source is loaded in the background, the late-load event bug is patched before execution, and the reconstructed map logic is cached for faster repeat openings.
+## Tested edge cases
 
-## V2 highlights
+The exact release asset set was exercised in Chromium using Android-sized portrait and landscape viewports, including GPS success, travelled-distance updates, permission denial, waypoint placement, failed street tiles and failed Leaflet mirrors.
 
-- MapLibre/OpenFreeMap vector rendering instead of Leaflet raster tiles and DOM-marker redraws
-- persistent control dock occupying approximately one fifth of the screen
-- five compact menus: Locate, Explore, Route, Layers and Base
-- filtered live GPS updates, shrink-on-zoom **you are here** point and smoothed travelled path
-- travelled-distance indicator
-- address-search and coordinate controls for moving the hotel/base marker
-- drop, save and route to waypoints through Google Maps
-- large schematic building blocks for major landmarks and smaller symbols for monuments
-- red and blue De Wallen frontage references
-- green licensed cannabis coffeeshops
-- pink smartshops
-- yellow curated cuisine-value picks with immediate cuisine badges
-- adult museums, shops and shows, hotel transit lines and major tourist places
+## Safety
 
-## Source layout
-
-- `index.html` — direct application shell
-- `styles.css` — high-contrast responsive interface
-- `data.js` — mapped locations and route data
-- `app.js` — deterministic startup and cached map-logic loader
-- `site-chunks/part-000.txt` through `part-006.txt` — verified compressed application source
-- `HOSTING_STATUS.md` — current published-build record
-
-The frontage blocks and highlighted businesses are navigation references, not cadastral building surveys. Adult and regulated venues are 18+. Carry identification, follow Dutch law and venue guidance, and never photograph or film sex workers or their windows.
+Adult and regulated venues are 18+. Coloured frontage blocks are approximate navigation references, not a live cadastral record. Never photograph sex workers or their windows.
