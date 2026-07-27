@@ -1,0 +1,354 @@
+name: Publish and test Android V3
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "android-v3-chunks/**"
+      - ".github/workflows/publish-android-v3.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: android-v3-publication
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      site_sha: ${{ steps.commit_site.outputs.sha }}
+      pages_config: ${{ steps.configure_pages.outcome }}
+      artifact_upload: ${{ steps.upload_pages.outcome }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Reconstruct and validate Android V3
+        shell: bash
+        run: |
+          set -euo pipefail
+          COUNT=$(find android-v3-chunks -maxdepth 1 -name 'part-*.txt' | wc -l)
+          test "$COUNT" -eq 3
+          cat android-v3-chunks/part-*.txt > /tmp/android-v3.html.gz.b64
+          base64 --decode /tmp/android-v3.html.gz.b64 | gzip --decompress > index.html
+          test -s index.html
+          echo "ca0d42a833eb726fbe4ceb06d4220a7ec16577715fcab953c9e53394f266a9d1  index.html" | sha256sum --check
+          grep -q "ANDROID V3" index.html
+          grep -q "Leaflet" index.html
+          grep -q "preferCanvas:true" index.html
+          grep -q "navigator.geolocation.watchPosition" index.html
+          grep -q "Travelled distance" index.html
+          grep -q "Drop waypoint" index.html
+          test "$(wc -c < index.html)" -gt 50000
+
+      - name: Validate inline JavaScript syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import re
+          from pathlib import Path
+          html = Path('index.html').read_text(encoding='utf-8')
+          scripts = re.findall(r'<script(?:\s[^>]*)?>([\s\S]*?)</script>', html, flags=re.I)
+          candidates = [script for script in scripts if 'navigator.geolocation.watchPosition' in script]
+          if len(candidates) != 1:
+              raise SystemExit(f'Expected one application script, found {len(candidates)}')
+          Path('/tmp/android-v3-app.js').write_text(candidates[0], encoding='utf-8')
+          PY
+          node --check /tmp/android-v3-app.js
+
+      - name: Commit direct single-page application
+        id: commit_site
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git commit -m "Publish Android-first Amsterdam map V3 [skip ci]" || true
+          git push
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Create or confirm GitHub Pages site
+        id: enable_pages
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          CODE=$(curl --location --silent --show-error \
+            --output /tmp/pages.json --write-out '%{http_code}' \
+            --request POST \
+            --header 'Accept: application/vnd.github+json' \
+            --header "Authorization: Bearer ${GH_TOKEN}" \
+            --header 'X-GitHub-Api-Version: 2022-11-28' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/pages" \
+            --data '{"build_type":"workflow"}')
+          cat /tmp/pages.json || true
+          case "$CODE" in 201|409|422) exit 0;; *) exit 1;; esac
+
+      - name: Configure GitHub Pages
+        id: configure_pages
+        continue-on-error: true
+        uses: actions/configure-pages@v5
+
+      - name: Prepare static site
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p _site
+          cp index.html _site/index.html
+          touch _site/.nojekyll
+
+      - name: Upload Pages artifact
+        id: upload_pages
+        continue-on-error: true
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+
+  deploy:
+    if: needs.build.outputs.pages_config == 'success' && needs.build.outputs.artifact_upload == 'success'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    outputs:
+      page_url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  mobile_acceptance:
+    if: always()
+    needs: [build, deploy]
+    runs-on: ubuntu-latest
+    outputs:
+      live_url: ${{ steps.select_url.outputs.live_url }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Select verified HTTPS candidate
+        id: select_url
+        env:
+          SITE_SHA: ${{ needs.build.outputs.site_sha }}
+          PAGE_URL: ${{ needs.deploy.outputs.page_url }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          CANDIDATES=(
+            "${PAGE_URL:-https://${GITHUB_REPOSITORY_OWNER}.github.io/Amsterdam-interactive-map/}"
+            "https://raw.githack.com/${GITHUB_REPOSITORY}/${SITE_SHA}/index.html"
+            "https://rawcdn.githack.com/${GITHUB_REPOSITORY}/${SITE_SHA}/index.html"
+          )
+          WORKING=""
+          for URL in "${CANDIDATES[@]}"; do
+            for ATTEMPT in $(seq 1 30); do
+              CODE=$(curl --location --silent --show-error --output /tmp/live.html --write-out '%{http_code}' "$URL" || true)
+              if [ "$CODE" = "200" ] \
+                && grep -q "ANDROID V3" /tmp/live.html \
+                && grep -q "navigator.geolocation.watchPosition" /tmp/live.html \
+                && grep -q "preferCanvas:true" /tmp/live.html; then
+                WORKING="$URL"
+                break 2
+              fi
+              sleep 4
+            done
+          done
+          test -n "$WORKING"
+          echo "live_url=$WORKING" >> "$GITHUB_OUTPUT"
+          echo "Selected live URL: $WORKING"
+
+      - name: Install Chromium acceptance-test runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm init -y >/dev/null 2>&1
+          npm install --no-audit --no-fund playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Run Android browser edge-case matrix
+        env:
+          LIVE_URL: ${{ steps.select_url.outputs.live_url }}
+        shell: bash
+        run: |
+          cat > /tmp/mobile-tests.cjs <<'JS'
+          const { chromium, devices } = require('playwright');
+          const assert = require('node:assert/strict');
+
+          async function waitForMap(page, allowFallback = false) {
+            await page.waitForFunction(
+              allowed => !!document.querySelector('.leaflet-map-pane') || (allowed && !!document.querySelector('#mapFallback, .map-fallback')),
+              allowFallback,
+              { timeout: 40000 }
+            );
+          }
+
+          async function normalAndroid(browser, url) {
+            const context = await browser.newContext({
+              ...devices['Pixel 5'],
+              locale: 'en-GB',
+              geolocation: { latitude: 52.357545, longitude: 4.844081 },
+              permissions: ['geolocation'],
+              ignoreHTTPSErrors: true
+            });
+            const page = await context.newPage();
+            const errors = [];
+            page.on('pageerror', error => errors.push(error.message));
+            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+            await waitForMap(page);
+            const initial = await page.evaluate(() => {
+              const map = document.getElementById('map');
+              const dock = document.getElementById('dock');
+              return {
+                map: { width: map.clientWidth, height: map.clientHeight },
+                dock: { width: dock.clientWidth, height: dock.clientHeight },
+                fallback: !!document.querySelector('#mapFallback, .map-fallback'),
+                status: document.getElementById('status')?.textContent || '',
+                tabs: document.querySelectorAll('.tab').length
+              };
+            });
+            assert.equal(initial.fallback, false);
+            assert.ok(initial.map.width >= 350 && initial.map.height >= 450, JSON.stringify(initial));
+            assert.ok(initial.dock.height >= 120 && initial.dock.height <= 230, JSON.stringify(initial));
+            assert.ok(initial.tabs >= 5);
+
+            await page.click('#gpsButton');
+            await page.waitForFunction(() => /Live/i.test(document.getElementById('modeValue')?.textContent || ''), null, { timeout: 15000 });
+            await context.setGeolocation({ latitude: 52.35767, longitude: 4.84418 });
+            await page.waitForFunction(() => !/^0\s*m$/.test(document.getElementById('distanceValue')?.textContent?.trim() || '0 m'), null, { timeout: 15000 });
+
+            await page.click('[data-panel="route"]');
+            await page.click('#dropWaypointButton');
+            const box = await page.locator('#map').boundingBox();
+            await page.mouse.click(box.x + box.width * 0.57, box.y + box.height * 0.48);
+            await page.waitForFunction(() => !/No active waypoint/i.test(document.getElementById('activeWaypointTitle')?.textContent || ''), null, { timeout: 10000 });
+            assert.deepEqual(errors, []);
+            await context.close();
+          }
+
+          async function deniedLocation(browser, url) {
+            const context = await browser.newContext({ ...devices['Pixel 5'], locale: 'en-GB', ignoreHTTPSErrors: true });
+            const page = await context.newPage();
+            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+            await waitForMap(page);
+            await page.click('#gpsButton');
+            await page.waitForFunction(() => /permission|blocked|allow/i.test(document.getElementById('status')?.textContent || ''), null, { timeout: 15000 });
+            await context.close();
+          }
+
+          async function tileFailure(browser, url) {
+            const context = await browser.newContext({ ...devices['Pixel 5'], locale: 'en-GB', ignoreHTTPSErrors: true });
+            await context.route(/tile\.openstreetmap\.org/, route => route.abort());
+            const page = await context.newPage();
+            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+            await waitForMap(page);
+            const usable = await page.evaluate(() => ({
+              mapPane: !!document.querySelector('.leaflet-map-pane'),
+              buttons: document.querySelectorAll('button').length,
+              mapHeight: document.getElementById('map')?.clientHeight || 0
+            }));
+            assert.equal(usable.mapPane, true);
+            assert.ok(usable.buttons >= 12 && usable.mapHeight >= 450, JSON.stringify(usable));
+            await context.close();
+          }
+
+          async function libraryFailure(browser, url) {
+            const context = await browser.newContext({ ...devices['Pixel 5'], locale: 'en-GB', ignoreHTTPSErrors: true });
+            await context.route(/(?:unpkg\.com|cdn\.jsdelivr\.net).*leaflet.*\.js/, route => route.abort());
+            const page = await context.newPage();
+            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+            await waitForMap(page, true);
+            const fallback = await page.evaluate(() => ({
+              visible: !!document.querySelector('#mapFallback, .map-fallback'),
+              text: document.body.innerText,
+              buttons: document.querySelectorAll('button,a').length
+            }));
+            assert.equal(fallback.visible, true);
+            assert.match(fallback.text, /Google Maps|OpenStreetMap|map engine/i);
+            assert.ok(fallback.buttons >= 2);
+            await context.close();
+          }
+
+          async function landscape(browser, url) {
+            const context = await browser.newContext({
+              viewport: { width: 740, height: 360 },
+              userAgent: devices['Pixel 5'].userAgent,
+              isMobile: true,
+              hasTouch: true,
+              deviceScaleFactor: 2,
+              locale: 'en-GB',
+              ignoreHTTPSErrors: true
+            });
+            const page = await context.newPage();
+            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+            await waitForMap(page);
+            const layout = await page.evaluate(() => {
+              const map = document.getElementById('map').getBoundingClientRect();
+              const dock = document.getElementById('dock').getBoundingClientRect();
+              const zoom = document.querySelector('.leaflet-control-zoom')?.getBoundingClientRect();
+              const overlaps = zoom ? !(zoom.right <= dock.left || zoom.left >= dock.right || zoom.bottom <= dock.top || zoom.top >= dock.bottom) : false;
+              return { map: { width: map.width, height: map.height }, dock: { width: dock.width, height: dock.height }, overlaps };
+            });
+            assert.ok(layout.map.width >= 430 && layout.map.height >= 340, JSON.stringify(layout));
+            assert.ok(layout.dock.width >= 250, JSON.stringify(layout));
+            assert.equal(layout.overlaps, false, JSON.stringify(layout));
+            await context.close();
+          }
+
+          (async () => {
+            const browser = await chromium.launch({ headless: true });
+            try {
+              await normalAndroid(browser, process.env.LIVE_URL);
+              await deniedLocation(browser, process.env.LIVE_URL);
+              await tileFailure(browser, process.env.LIVE_URL);
+              await libraryFailure(browser, process.env.LIVE_URL);
+              await landscape(browser, process.env.LIVE_URL);
+              console.log('ANDROID_V3_ACCEPTANCE_PASS');
+            } finally {
+              await browser.close();
+            }
+          })().catch(error => { console.error(error); process.exit(1); });
+          JS
+          node /tmp/mobile-tests.cjs
+
+      - name: Record verified Android V3 publication
+        env:
+          LIVE_URL: ${{ steps.select_url.outputs.live_url }}
+          SITE_SHA: ${{ needs.build.outputs.site_sha }}
+          DEPLOY_RESULT: ${{ needs.deploy.result }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "# Amsterdam Interactive Map — Android V3 verified publication"
+            echo
+            echo "Status: verified"
+            echo
+            echo "Live HTTPS URL: ${LIVE_URL}"
+            echo
+            echo "Site commit: ${SITE_SHA}"
+            echo
+            echo "GitHub Pages deployment: ${DEPLOY_RESULT}"
+            echo
+            echo "Acceptance matrix: Pixel 5 portrait, Android landscape, live GPS and distance, denied GPS permission, failed OSM tiles, failed Leaflet mirrors, waypoint interaction"
+            echo
+            echo "Architecture: single direct HTML page, Leaflet canvas overlays, no WebGL requirement, no runtime source reconstruction"
+            echo
+            echo "Verified: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+          } > HOSTING_STATUS_ANDROID_V3.md
+          git pull --rebase
+          git add HOSTING_STATUS_ANDROID_V3.md
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Record verified Android V3 publication [skip ci]" || true
+          git push
