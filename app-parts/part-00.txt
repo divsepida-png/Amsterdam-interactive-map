@@ -1,0 +1,224 @@
+const DATA = window.AMS_DATA;
+window.addEventListener('load', () => {
+  const statusEl = document.getElementById('status');
+  if (!window.maplibregl) {
+    statusEl.textContent = 'Map engine failed to load. Check the internet connection and refresh.';
+    return;
+  }
+
+  const COLOURS = {
+    red:'#e21c32', blue:'#087df0', coffee:'#00a65a', smart:'#ef3aa8',
+    food:'#ffd400', adultMuseum:'#7546aa', adultShop:'#bb267f',
+    adultShow:'#ff7a1a', landmark:'#293e52', monument:'#586b7d',
+    hotel:'#00a65a', transport:'#18c5d9'
+  };
+
+  const state = {
+    base: loadJson('ams-v2-base', DATA.hotel),
+    activePanel:'locate',
+    layerVisibility:{red:true,blue:true,coffee:true,smart:true,food:true,adult:true,landmarks:true,transit:true,accuracy:false},
+    follow:true, tracking:false, trailPaused:false, dropWaypoint:false,
+    watchId:null, smoothPosition:null, pendingPosition:null, renderFrame:null,
+    lastTrailAt:0, lastCameraAt:0, manualCameraUntil:0,
+    trail:loadJson('ams-v2-trail', []),
+    distance:0,
+    activeWaypoint:loadJson('ams-v2-active-waypoint', null),
+    waypoints:loadJson('ams-v2-waypoints', []),
+    selected:null,
+    geocodeCache:loadJson('ams-v2-geocode-cache', {})
+  };
+
+  const vectorStyle = 'https://tiles.openfreemap.org/styles/liberty';
+  const fallbackStyle = {
+    version:8,
+    sources:{
+      'osm-raster':{
+        type:'raster',
+        tiles:['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+        tileSize:256,
+        attribution:'© OpenStreetMap contributors'
+      }
+    },
+    layers:[{id:'osm-raster',type:'raster',source:'osm-raster'}]
+  };
+  let usingFallbackStyle = false;
+  const map = new maplibregl.Map({
+    container:'map',
+    style:vectorStyle,
+    center:[4.889,52.3695],
+    zoom:13.25,
+    minZoom:10,
+    maxZoom:20,
+    pitchWithRotate:false,
+    dragRotate:false,
+    touchPitch:false,
+    attributionControl:true,
+    fadeDuration:0,
+    antialias:false,
+    refreshExpiredTiles:false,
+    maxTileCacheSize:160
+  });
+  const vectorLoadTimer = setTimeout(() => {
+    if (!map.loaded() && !usingFallbackStyle) {
+      usingFallbackStyle = true;
+      statusEl.textContent = 'Vector tiles are slow or unavailable; loading the reliable street-map fallback…';
+      map.setStyle(fallbackStyle);
+    }
+  }, 9000);
+  map.addControl(new maplibregl.NavigationControl({showCompass:false,visualizePitch:false}),'top-left');
+  map.addControl(new maplibregl.ScaleControl({maxWidth:110,unit:'metric'}),'bottom-left');
+
+  const els = {
+    status:statusEl,
+    distance:document.getElementById('distanceValue'),
+    accuracy:document.getElementById('accuracyValue'),
+    mode:document.getElementById('modeValue'),
+    gps:document.getElementById('gpsButton'),
+    panelHost:document.getElementById('panelHost'),
+    mapHint:document.getElementById('mapHint'),
+    placeSearch:document.getElementById('placeSearch'),
+    placeResults:document.getElementById('placeResults'),
+    placeDetail:document.getElementById('placeDetail'),
+    activeWaypointTitle:document.getElementById('activeWaypointTitle'),
+    activeWaypointText:document.getElementById('activeWaypointText'),
+    waypointList:document.getElementById('waypointList'),
+    baseName:document.getElementById('baseName'),
+    baseAddress:document.getElementById('baseAddress'),
+    baseSearch:document.getElementById('baseSearch'),
+    baseResults:document.getElementById('baseResults')
+  };
+
+  const placeIndex = [
+    ...DATA.adultPlaces, ...DATA.coffeeshops, ...DATA.smartshops,
+    ...DATA.valueFood, ...DATA.landmarks, ...DATA.transit.stops
+  ];
+
+  function loadJson(key,fallback){
+    try{const value=localStorage.getItem(key);return value?JSON.parse(value):fallback}catch{return fallback}
+  }
+  function saveJson(key,value){
+    try{localStorage.setItem(key,JSON.stringify(value))}catch{}
+  }
+  function esc(value=''){
+    return String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+  }
+  function clamp(value,min,max){return Math.min(max,Math.max(min,value))}
+  function radians(value){return value*Math.PI/180}
+  function haversine(a,b){
+    const R=6371000,dLat=radians(b.lat-a.lat),dLon=radians(b.lon-a.lon);
+    const h=Math.sin(dLat/2)**2+Math.cos(radians(a.lat))*Math.cos(radians(b.lat))*Math.sin(dLon/2)**2;
+    return 2*R*Math.asin(Math.min(1,Math.sqrt(h)));
+  }
+  function formatDistance(metres){
+    if(metres<1000)return `${Math.round(metres)} m`;
+    return `${(metres/1000).toFixed(metres<10000?2:1)} km`;
+  }
+  function rectanglePolygon(lon,lat,widthM=18,heightM=12){
+    const dx=(widthM/2)/(111320*Math.cos(radians(lat)));
+    const dy=(heightM/2)/110540;
+    return [[[lon-dx,lat-dy],[lon+dx,lat-dy],[lon+dx,lat+dy],[lon-dx,lat+dy],[lon-dx,lat-dy]]];
+  }
+  function circlePolygon(lon,lat,radiusM=30,steps=28){
+    const coords=[];
+    for(let i=0;i<=steps;i++){
+      const angle=(i/steps)*Math.PI*2;
+      const dx=(Math.cos(angle)*radiusM)/(111320*Math.cos(radians(lat)));
+      const dy=(Math.sin(angle)*radiusM)/110540;
+      coords.push([lon+dx,lat+dy]);
+    }
+    return [coords];
+  }
+  function featureCollection(features=[]){return {type:'FeatureCollection',features}}
+  function pointFeature(item,properties={}){
+    return {type:'Feature',id:item.id,geometry:{type:'Point',coordinates:[item.lon,item.lat]},properties:{...item,...properties}};
+  }
+  function polygonFeature(item,width=18,height=12,properties={}){
+    return {type:'Feature',id:item.id,geometry:{type:'Polygon',coordinates:rectanglePolygon(item.lon,item.lat,width,height)},properties:{...item,...properties}};
+  }
+  function categoryColour(kind){
+    if(kind==='coffeeshop')return COLOURS.coffee;
+    if(kind==='smartshop')return COLOURS.smart;
+    if(kind==='value-food')return COLOURS.food;
+    if(kind==='adult-museum')return COLOURS.adultMuseum;
+    if(kind==='adult-shop')return COLOURS.adultShop;
+    if(kind==='adult-show')return COLOURS.adultShow;
+    if(kind==='transport-stop')return COLOURS.transport;
+    return '#52687b';
+  }
+  function categoryLabel(item){
+    const labels={
+      coffeeshop:'Cannabis coffeeshop · 18+',
+      smartshop:'Smartshop / legal truffle retailer · 18+',
+      'value-food':`Value cuisine pick · ${item.cuisine||''}`,
+      'adult-museum':'Sex / erotic museum · 18+',
+      'adult-shop':'Sex / fetish / kinky shop · 18+',
+      'adult-show':'Adult show / attraction · 18+',
+      'transport-stop':'Hotel transport stop'
+    };
+    if(item.importance)return item.importance==='major'?'Major landmark building':'Landmark / monument';
+    return labels[item.kind]||item.kind||'Place';
+  }
+  function makeFrontageBlocks(frontages,kind,colour){
+    const features=[];
+    let id=0;
+    for(const frontage of frontages){
+      const [a,b]=frontage.points;
+      const distance=haversine({lat:a[0],lon:a[1]},{lat:b[0],lon:b[1]});
+      const count=Math.max(1,Math.ceil(distance/18));
+      for(let i=0;i<count;i++){
+        const t=(i+.5)/count;
+        const lat=a[0]+(b[0]-a[0])*t;
+        const lon=a[1]+(b[1]-a[1])*t;
+        const item={id:`${kind}-${id++}`,name:frontage.name,kind,lat,lon,symbol:kind==='red-light'?'R':'B',note:'Approximate public street-frontage block; active individual windows can change.'};
+        features.push(polygonFeature(item,12,8,{colour}));
+      }
+    }
+    return features;
+  }
+
+  const poiBuildings = [
+    ...DATA.adultPlaces.map(item=>polygonFeature(item,18,12,{colour:categoryColour(item.kind)})),
+    ...DATA.coffeeshops.map(item=>polygonFeature(item,18,12,{colour:COLOURS.coffee})),
+    ...DATA.smartshops.map(item=>polygonFeature(item,18,12,{colour:COLOURS.smart})),
+    ...DATA.valueFood.map(item=>polygonFeature(item,20,14,{colour:COLOURS.food}))
+  ];
+  const poiPoints = [
+    ...DATA.adultPlaces, ...DATA.coffeeshops, ...DATA.smartshops, ...DATA.valueFood
+  ].map(item=>pointFeature(item,{colour:categoryColour(item.kind)}));
+
+  const majorLandmarkPolygons=DATA.landmarks.filter(item=>item.importance==='major').map(item=>polygonFeature(item,item.w||65,item.h||42,{colour:COLOURS.landmark}));
+  const majorLandmarkPoints=DATA.landmarks.filter(item=>item.importance==='major').map(item=>pointFeature(item,{colour:COLOURS.landmark}));
+  const minorLandmarkPoints=DATA.landmarks.filter(item=>item.importance==='minor').map(item=>pointFeature(item,{colour:COLOURS.monument}));
+
+  const redBlocks=makeFrontageBlocks(DATA.redFrontages,'red-light',COLOURS.red);
+  const blueBlocks=makeFrontageBlocks(DATA.blueFrontages,'blue-light',COLOURS.blue);
+
+  const transitLines=DATA.transit.routes.map(route=>({
+    type:'Feature',id:route.id,
+    geometry:{type:'LineString',coordinates:route.points.map(([lat,lon])=>[lon,lat])},
+    properties:{...route}
+  }));
+  const transitStops=DATA.transit.stops.map(item=>pointFeature(item,{colour:COLOURS.transport}));
+
+  function tuneBaseStyle(){
+    const layers=map.getStyle().layers||[];
+    for(const layer of layers){
+      const id=(layer.id||'').toLowerCase();
+      try{
+        if(layer.type==='background')map.setPaintProperty(layer.id,'background-color','#eef2f5');
+        if(layer.type==='fill'&&id.includes('building')){
+          map.setPaintProperty(layer.id,'fill-color','#d6dde3');
+          map.setPaintProperty(layer.id,'fill-opacity',0.82);
+          map.setPaintProperty(layer.id,'fill-outline-color','#9ca8b2');
+        }
+        if(layer.type==='fill'&&id.includes('water'))map.setPaintProperty(layer.id,'fill-color','#a8d8f0');
+        if(layer.type==='line'&&(id.includes('cycle')||id.includes('bicycle'))){
+          map.setPaintProperty(layer.id,'line-color','#00a66a');
+          map.setPaintProperty(layer.id,'line-opacity',0.95);
+        }
+        if(layer.type==='line'&&(id.includes('foot')||id.includes('path')||id.includes('pedestrian'))){
+          map.setPaintProperty(layer.id,'line-color','#7654d8');
+          map.setPaintProperty(layer.id,'line-opacity',0.82);
+        }
+        if(layer.type==='line'&&(id.includes('rail')||id.includes('tram'))){
+          map.setPaintProp
