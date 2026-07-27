@@ -2,6 +2,12 @@
 
 A direct static mobile-first Amsterdam visitor map designed for Android Chrome.
 
+## Open the pinned release
+
+https://cdn.jsdelivr.net/gh/divsepida-png/Amsterdam-interactive-map@1da07193bb78c5f2cf8bc4c8f476ae24bd643f3f/index.html
+
+This address is pinned to the clean Android V3 commit. It does not use the previous raw.githack confirmation page or compressed application loader.
+
 ## Architecture
 
 - ordinary HTML, CSS and JavaScript files
