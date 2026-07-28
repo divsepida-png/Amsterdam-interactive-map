@@ -1,0 +1,10 @@
+{
+  "name": "Amsterdam Frontage Map",
+  "short_name": "AMS Map",
+  "description": "High-contrast Amsterdam frontage-point map with hotels, waypoints and Google routing.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#07131f",
+  "theme_color": "#07131f"
+}
