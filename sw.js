@@ -1,17 +1,21 @@
 'use strict';
 
-const CACHE_NAME = 'ams-frontage-shell-v1';
+const CACHE_NAME = 'ams-frontage-shell-v2';
 const SHELL = [
-  './',
-  './index.html',
-  './app.css?v=1',
-  './data.js?v=1',
-  './app.js?v=1',
-  './manifest.webmanifest?v=1'
+  './index.html?v=2',
+  './app.css?v=2',
+  './geometry-guard.js?v=2',
+  './data.js?v=2',
+  './app.js?v=2',
+  './manifest.webmanifest?v=2'
 ];
 
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(SHELL)).then(() => self.skipWaiting()));
+  event.waitUntil(
+    caches.open(CACHE_NAME)
+      .then(cache => cache.addAll(SHELL))
+      .then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener('activate', event => {
@@ -27,21 +31,33 @@ self.addEventListener('fetch', event => {
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
 
-  // Leave map tiles to the browser's normal HTTP cache and the tile provider's headers.
+  // OpenStreetMap tiles keep their provider/browser caching behaviour.
   if (url.hostname === 'tile.openstreetmap.org') return;
+
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request, {cache: 'no-store'})
+        .then(response => {
+          if (response?.ok) {
+            caches.open(CACHE_NAME).then(cache => cache.put('./index.html?v=2', response.clone()));
+          }
+          return response;
+        })
+        .catch(() => caches.match('./index.html?v=2'))
+    );
+    return;
+  }
 
   if (url.origin === self.location.origin) {
     event.respondWith(
-      caches.match(request).then(cached => {
-        const network = fetch(request).then(response => {
-          if (response && response.ok) {
-            const copy = response.clone();
-            caches.open(CACHE_NAME).then(cache => cache.put(request, copy));
+      fetch(request)
+        .then(response => {
+          if (response?.ok) {
+            caches.open(CACHE_NAME).then(cache => cache.put(request, response.clone()));
           }
           return response;
-        }).catch(() => cached);
-        return cached || network;
-      })
+        })
+        .catch(() => caches.match(request))
     );
   }
 });
