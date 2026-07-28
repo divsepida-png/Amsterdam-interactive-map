@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#071727">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="application-name" content="Amsterdam Map V4">
-<title>Amsterdam Interactive Map — Semantic Buildings V4</title>
+<meta name="application-name" content="Amsterdam Map V5">
+<title>Amsterdam Interactive Map — Dynamic Building Contours V5</title>
 <link rel="stylesheet" href="android-v3.css">
 </head>
 <body>
@@ -54,7 +54,7 @@
         <button class="btn" id="pauseTrail">Pause trail</button>
         <button class="btn danger" id="clearTrail">Clear trail</button>
       </div>
-      <div class="card"><strong>Semantic Android mode</strong><small>Every category remains visible through fixed-size colour badges; street zoom reveals abstract address-centred building plots. Zoom animations and tile fades remain disabled.</small></div>
+      <div class="card"><strong>Dynamic building mode</strong><small>At street zoom the app requests real OpenStreetMap building outlines and colours the matched footprint, leaving roads and paths clear. If that service is delayed, the high-contrast semantic fallback remains visible.</small></div>
       <div class="grid2">
         <button class="btn" id="cityView">City view</button>
         <button class="btn" id="wallenView">De Wallen</button>
@@ -63,7 +63,7 @@
 
     <section class="panel" id="panel-explore">
       <h2>Explore places</h2>
-      <div class="field"><label for="searchInput">Name, category or cuisine</label><input id="searchInput" type="search" placeholder="Thai, museum, coffeeshop…"></div>
+      <div class="field"><label for="searchInput">Name, category or cuisine</label><input id="searchInput" type="search" placeholder="Thai, museum, pub, SPAR…"></div>
       <div id="searchResults"></div>
       <div id="selectedPlace"></div>
     </section>
@@ -105,6 +105,7 @@
 <script defer src="android-v3-app-3.js"></script>
 <script defer src="android-v3-app-4.js"></script>
 <script defer src="v4-patch.js"></script>
+<script defer src="v5-patch.js"></script>
 <script defer src="android-v3-app-5.js"></script>
 </body>
 </html>
