@@ -40,10 +40,17 @@
 
   function removeLegacyNodes(root = document) {
     legacySelectors.forEach(selector => {
+      if (root.matches?.(selector)) {
+        root.remove();
+        return;
+      }
       root.querySelectorAll?.(selector).forEach(node => node.remove());
     });
 
-    root.querySelectorAll?.('script[src],link[href]').forEach(node => {
+    const linkedNodes = [];
+    if (root.matches?.('script[src],link[href]')) linkedNodes.push(root);
+    root.querySelectorAll?.('script[src],link[href]').forEach(node => linkedNodes.push(node));
+    linkedNodes.forEach(node => {
       const reference = node.getAttribute('src') || node.getAttribute('href') || '';
       if (/android-v3|v10-clean-renderer|leaflet/i.test(reference)) node.remove();
     });
