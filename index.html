@@ -4,188 +4,22 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#07131f">
-  <meta name="description" content="A fast, high-contrast Amsterdam map with point-only places, persistent landmarks, hotels, waypoints and Google Maps routing.">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <title>Amsterdam Point Map</title>
-  <link rel="manifest" href="manifest.webmanifest?v=4">
-  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css">
-  <link rel="stylesheet" href="app.css?v=4">
-  <style>
-    .leaflet-pane,.leaflet-control-container,.leaflet-marker-icon,.leaflet-marker-shadow,
-    svg.leaflet-zoom-animated,canvas.leaflet-zoom-animated,[data-frontage-layer],
-    [data-red-frontage],[data-blue-frontage]{display:none!important}
-  </style>
-  <script defer src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
-  <script defer src="maplibre-compat.js?v=4"></script>
-  <script defer src="geometry-guard.js?v=4"></script>
-  <script defer src="data.js?v=4"></script>
-  <script defer src="app.js?v=4"></script>
+  <title>Opening Amsterdam Point Map</title>
+  <style>html,body{height:100%;margin:0;background:#07131f;color:#fff;font-family:system-ui,sans-serif}body{display:grid;place-items:center;text-align:center;padding:24px}.box{max-width:460px;background:#10283a;border:1px solid #315a74;border-radius:16px;padding:20px}a{color:#7dcbff}</style>
 </head>
 <body>
-  <div id="app">
-    <main id="mapShell">
-      <div id="map" role="application" aria-label="Interactive Amsterdam map"></div>
-
-      <header id="mapHeader">
-        <button id="menuButton" class="iconButton" type="button" aria-label="Open map controls" aria-controls="controlPanel" aria-expanded="false">☰</button>
-        <div class="statusBlock">
-          <strong id="statusText">Loading GPU map…</strong>
-          <span id="statusDetail">Preparing clean point-only renderer</span>
-        </div>
-        <button id="locateButton" class="primary compact" type="button">Use GPS</button>
-      </header>
-
-      <div id="mapLegend" aria-label="Map legend"></div>
-
-      <div id="mapActions" aria-label="Map actions">
-        <button id="zoomCity" class="mapAction" type="button">City</button>
-        <button id="zoomCentre" class="mapAction" type="button">Centre</button>
-        <button id="addWaypointMap" class="mapAction" type="button">+ Waypoint</button>
-      </div>
-
-      <div id="fallback" hidden>
-        <section class="fallbackCard">
-          <h1>Map engine unavailable</h1>
-          <p id="fallbackReason">This browser could not start the WebGL map.</p>
-          <a href="https://www.openstreetmap.org/#map=13/52.3695/4.8890" target="_blank" rel="noopener">Open Amsterdam in OpenStreetMap</a>
-          <a href="https://www.google.com/maps/search/?api=1&query=Amsterdam" target="_blank" rel="noopener">Open Amsterdam in Google Maps</a>
-        </section>
-      </div>
-
-      <div id="toast" role="status" aria-live="polite"></div>
-    </main>
-
-    <aside id="controlPanel" aria-label="Map controls">
-      <div class="panelHandle" aria-hidden="true"></div>
-      <div class="panelTop">
-        <div>
-          <p class="eyebrow">Amsterdam map</p>
-          <h1>Point-only rebuild</h1>
-        </div>
-        <button id="closePanel" class="iconButton" type="button" aria-label="Close controls">×</button>
-      </div>
-
-      <nav id="tabs" aria-label="Control sections">
-        <button class="tab active" type="button" data-tab="explore">Explore</button>
-        <button class="tab" type="button" data-tab="layers">Layers</button>
-        <button class="tab" type="button" data-tab="routes">Routes</button>
-        <button class="tab" type="button" data-tab="hotel">Hotel</button>
-        <button class="tab" type="button" data-tab="personalise">Display</button>
-      </nav>
-
-      <div class="panelScroll">
-        <section class="tabPanel active" id="tab-explore">
-          <label class="field">
-            <span>Search mapped places</span>
-            <input id="searchInput" type="search" autocomplete="off" placeholder="Museum, pub, Thai, smartshop…">
-          </label>
-          <div id="searchResults" class="resultList"></div>
-          <div id="selectedPlace" class="selectedHost"></div>
-        </section>
-
-        <section class="tabPanel" id="tab-layers">
-          <div class="sectionHeading">
-            <div>
-              <h2>Visible place types</h2>
-              <p>Each switch controls compact point markers only.</p>
-            </div>
-            <button id="resetLayers" class="textButton" type="button">Reset</button>
-          </div>
-          <div id="layerControls" class="toggleList"></div>
-          <div class="notice">
-            <strong>Red-light geometry removed</strong>
-            <span>Red rectangles, dashed connectors, frontage strips, area fills and building blocks are prohibited and automatically rejected.</span>
-          </div>
-        </section>
-
-        <section class="tabPanel" id="tab-routes">
-          <div class="sectionHeading">
-            <div>
-              <h2>Waypoints</h2>
-              <p>Save several points and open Google Maps from your current location.</p>
-            </div>
-          </div>
-          <div class="buttonGrid">
-            <button id="addWaypoint" class="primary" type="button">Tap map to add</button>
-            <button id="routeAll" type="button">Route all → hotel</button>
-            <button id="clearWaypoints" class="danger" type="button">Clear all</button>
-          </div>
-          <div id="waypointList" class="resultList"></div>
-        </section>
-
-        <section class="tabPanel" id="tab-hotel">
-          <div id="hotelCard" class="placeCard"></div>
-          <div class="buttonGrid">
-            <button id="routeHotel" class="primary" type="button">Google route</button>
-            <button id="hotelFromMap" type="button">Set by map tap</button>
-          </div>
-          <label class="field">
-            <span>Find hotel or address</span>
-            <input id="hotelSearch" type="search" autocomplete="street-address" placeholder="Hotel name or Amsterdam address">
-          </label>
-          <button id="findHotel" class="fullButton" type="button">Search address</button>
-          <div id="hotelResults" class="resultList"></div>
-          <div class="sectionHeading savedHotelsHeading"><div><h2>Saved hotels</h2><p>Switch the active hotel or route to any saved base.</p></div></div>
-          <div id="savedHotelList" class="resultList"></div>
-          <label class="field">
-            <span>Coordinates</span>
-            <input id="hotelCoords" inputmode="decimal" placeholder="52.357545, 4.844081">
-          </label>
-          <div class="buttonGrid">
-            <button id="setHotelCoords" type="button">Set coordinates</button>
-            <button id="resetHotel" type="button">Default hotel</button>
-          </div>
-        </section>
-
-        <section class="tabPanel" id="tab-personalise">
-          <fieldset>
-            <legend>Abstraction level</legend>
-            <div class="segmented" id="abstractionControls">
-              <button type="button" data-abstraction="overview">Overview</button>
-              <button type="button" data-abstraction="balanced" class="active">Balanced</button>
-              <button type="button" data-abstraction="detailed">Detailed</button>
-            </div>
-            <p class="helpText">All landmark dots remain visible. This changes label density and the prominence of other places.</p>
-          </fieldset>
-
-          <fieldset>
-            <legend>Marker size</legend>
-            <div class="segmented" id="sizeControls">
-              <button type="button" data-size="compact">Compact</button>
-              <button type="button" data-size="standard" class="active">Standard</button>
-              <button type="button" data-size="large">Large</button>
-            </div>
-          </fieldset>
-
-          <label class="field">
-            <span>Default Google travel mode</span>
-            <select id="travelMode">
-              <option value="walking">Walking</option>
-              <option value="transit">Public transport</option>
-              <option value="bicycling">Cycling</option>
-              <option value="driving">Driving</option>
-            </select>
-          </label>
-
-          <label class="switchRow">
-            <span><strong>Keep major labels visible</strong><small>Allows overlap for major landmark names.</small></span>
-            <input id="majorLabels" type="checkbox" checked>
-          </label>
-
-          <label class="switchRow">
-            <span><strong>Reduce motion</strong><small>Disables animated camera movement.</small></span>
-            <input id="reduceMotion" type="checkbox">
-          </label>
-
-          <button id="resetDisplay" class="fullButton" type="button">Reset display preferences</button>
-        </section>
-      </div>
-    </aside>
-  </div>
+  <div class="box"><h1>Opening compatible map…</h1><p>Loading the Leaflet point-only build. No rectangles, dashed connectors, frontage strips or WebGL engine.</p><p><a id="direct" href="leaflet-point.html?release=leaflet-points-v1">Open directly</a></p></div>
+  <script>
+    (async()=>{
+      try{
+        if('serviceWorker' in navigator){const regs=await navigator.serviceWorker.getRegistrations();await Promise.all(regs.map(r=>r.unregister()));}
+        if('caches' in window){const names=await caches.keys();await Promise.all(names.map(n=>caches.delete(n)));}
+      }catch(error){console.warn(error);}
+      location.replace('leaflet-point.html?release=leaflet-points-v1');
+    })();
+  </script>
 </body>
 </html>
