@@ -2,7 +2,7 @@
 const DATA = window.AMS_ANDROID_DATA;
 const $ = id => document.getElementById(id);
 const state = {
-  map:null, renderer:null, tileLayer:null, groups:{}, visible:{red:true,blue:true,coffee:true,smart:true,food:true,adult:true,landmarks:true,transit:true,accuracy:false},
+  map:null, renderer:null, tileLayer:null, groups:{}, visible:{coffee:true,smart:true,food:true,adult:true,landmarks:true,transit:true,accuracy:false},
   base:load('ams-v3-base',DATA.hotel), activeWaypoint:load('ams-v3-active-waypoint',null), waypoints:load('ams-v3-waypoints',[]),
   trail:load('ams-v3-trail',[]), user:null, userMarker:null, accuracyCircle:null, trailLine:null,
   tracking:false, watchId:null, follow:true, trailPaused:false, dropWaypoint:false, lastTrailTime:0, lastCameraTime:0, distance:0,
@@ -63,6 +63,7 @@ function addCircle(group,item,colour,r=7){
   const layer=L.circleMarker([item.lat,item.lon],{renderer:state.renderer,radius:r,color:'#fff',weight:1.4,fillColor:colour,fillOpacity:.96,interactive:true,bubblingMouseEvents:false});
   layer.bindPopup(popupHtml(item));layer.on('click',()=>selectPlace(item,false));group.addLayer(layer);return layer
 }
-function addFrontages(group,frontages,colour,kind){
-  let n=0;for(const f of frontages){const a={lat:f.points[0][0],lon:f.points[0][1]},b={lat:f.points[1][0],lon:f.points[1][1]};const count=Math.max(1,Math.ceil(distance(a,b)/18));for(let i=0;i<count;i++){const t=(i+.5)/count;const item={id:`${kind}-${n++}`,name:f.name,kind,lat:a.lat+(b.lat-a.lat)*t,lon:a.lon+(b.lon-a.lon)*t,note:'Approximate public frontage reference; active individual windows can change.'};addRect(group,item,colour,12,8)}}
+function addFrontages(){
+  // Intentionally disabled. Red/blue frontage geometry was removed from the application.
+  return null;
 }
