@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#071727">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="application-name" content="Amsterdam Map V6">
-<title>Amsterdam Interactive Map — Dots and Building Fronts V6</title>
+<meta name="application-name" content="Amsterdam Map V7">
+<title>Amsterdam Interactive Map — Clean Dots and Building Fronts V7</title>
 <link rel="stylesheet" href="android-v3.css">
 </head>
 <body>
@@ -27,7 +27,7 @@
   <aside id="dock">
     <div id="head">
       <div>
-        <div id="status" aria-live="polite">Starting dot and façade map…</div>
+        <div id="status" aria-live="polite">Starting clean dot and façade map…</div>
         <div class="metrics">
           <div class="metric"><span>Distance</span><strong id="distanceValue">0 m</strong></div>
           <div class="metric"><span>Accuracy</span><strong id="accuracyValue">—</strong></div>
@@ -105,8 +105,9 @@
 <script defer src="android-v3-app-3.js"></script>
 <script defer src="android-v3-app-4.js"></script>
 <script defer src="v4-patch.js"></script>
-<script defer src="v5-patch.js"></script>
-<script defer src="v6-dot-facades.js"></script>
+<script defer src="v5-patch.js?v=7-poi-only"></script>
+<script defer src="v6-dot-facades.js?v=7-clean"></script>
+<script defer src="v7-artifact-cleanup.js?v=1"></script>
 <script defer src="android-v3-app-5.js"></script>
 </body>
 </html>
