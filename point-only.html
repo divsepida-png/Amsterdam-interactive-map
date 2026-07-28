@@ -13,7 +13,7 @@
   <meta http-equiv="Expires" content="0">
   <title>Amsterdam Point-Only Map</title>
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css">
-  <link rel="stylesheet" href="app.css?release=point-only-v3">
+  <link rel="stylesheet" href="app.css?release=point-only-v4">
   <style>
     .leaflet-pane,.leaflet-control-container,.leaflet-marker-icon,.leaflet-marker-shadow,
     .leaflet-tooltip-pane,.leaflet-popup-pane,svg.leaflet-zoom-animated,
@@ -206,9 +206,10 @@
 
       const scripts = [
         'https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js',
-        './geometry-guard.js?release=point-only-v3',
-        './data.js?release=point-only-v3',
-        './app.js?release=point-only-v3'
+        './maplibre-compat.js?release=point-only-v4',
+        './geometry-guard.js?release=point-only-v4',
+        './data.js?release=point-only-v4',
+        './app.js?release=point-only-v4'
       ];
 
       for (const source of scripts) {
