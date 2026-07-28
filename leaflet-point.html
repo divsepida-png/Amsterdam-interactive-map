@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+  <meta name="theme-color" content="#07131f">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <title>Amsterdam Point Map</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+  <style>
+    :root{font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color-scheme:dark;--panel:#07131ff2;--card:#10283a;--line:#29506b;--text:#f6fbff;--muted:#a9c0d0;--blue:#1187e8}
+    *{box-sizing:border-box}html,body,#app,#map{height:100%;margin:0}body{overflow:hidden;background:#07131f;color:var(--text)}button,input,select{font:inherit}button{cursor:pointer}
+    #map{position:absolute;inset:0;background:#dbe5ec}.leaflet-container{font:14px/1.35 Inter,system-ui,sans-serif}.leaflet-control-attribution{font-size:10px}
+    .topbar{position:absolute;z-index:900;left:10px;right:10px;top:max(10px,env(safe-area-inset-top));display:flex;gap:8px;align-items:center;pointer-events:none}
+    .topbar>*{pointer-events:auto}.icon,.primary,.ghost,.danger{border:1px solid var(--line);border-radius:13px;min-height:44px;padding:0 14px;background:var(--panel);color:var(--text);font-weight:800}.icon{width:46px;padding:0;font-size:22px}.primary{background:var(--blue);border-color:#55b4ff}.danger{background:#4a1820;border-color:#9e4655}.ghost{background:#0b1d2bdb}
+    .status{flex:1;min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:8px 12px;box-shadow:0 8px 22px #0007}.status strong,.status span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.status span{font-size:12px;color:var(--muted);margin-top:2px}
+    .legend{position:absolute;z-index:800;left:10px;right:10px;top:72px;display:flex;gap:6px;overflow-x:auto;padding:2px 0 6px;scrollbar-width:none}.legend::-webkit-scrollbar{display:none}.chip{flex:none;border-radius:999px;padding:5px 9px;font-size:11px;font-weight:900;border:2px solid #fff;box-shadow:0 2px 8px #0005}
+    .mapActions{position:absolute;z-index:800;right:10px;top:112px;display:grid;gap:7px}.mapActions button{min-width:82px}
+    .panel{position:absolute;z-index:1000;left:0;right:0;bottom:0;max-height:76vh;background:var(--panel);border-top:1px solid var(--line);border-radius:22px 22px 0 0;box-shadow:0 -10px 32px #0009;transform:translateY(calc(100% - 68px));transition:transform .18s ease;overflow:hidden}.panel.open{transform:translateY(0)}
+    .handle{height:16px;display:flex;align-items:center;justify-content:center}.handle:before{content:"";width:48px;height:5px;border-radius:999px;background:#6f8fa4}.tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:2px;padding:0 8px 8px}.tabs button{border:0;background:transparent;color:var(--muted);padding:10px 3px;font-size:12px;font-weight:800}.tabs button.active{color:#fff;background:#14344b;border-radius:11px}
+    .content{overflow:auto;max-height:calc(76vh - 64px);padding:0 12px calc(18px + env(safe-area-inset-bottom))}.view{display:none}.view.active{display:block}.section{background:#0e2637;border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:10px}.section h2{margin:0 0 5px;font-size:17px}.section p{margin:0 0 10px;color:var(--muted);font-size:13px}.row{display:flex;gap:8px;align-items:center}.row>*{flex:1}.field{display:grid;gap:5px;margin-bottom:10px}.field span{font-size:12px;color:var(--muted);font-weight:700}input,select{width:100%;min-height:43px;border-radius:11px;border:1px solid var(--line);background:#06131e;color:#fff;padding:0 11px}.list{display:grid;gap:8px}.item{background:#0a1c29;border:1px solid #234760;border-radius:12px;padding:10px}.item strong{display:block}.meta{color:var(--muted);font-size:12px;margin:3px 0 8px}.actions{display:flex;flex-wrap:wrap;gap:6px}.actions button,.actions a{border:1px solid #315c76;border-radius:9px;background:#123047;color:#fff;text-decoration:none;padding:7px 9px;font-size:12px;font-weight:800}.switch{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid #17364b}.switch:last-child{border-bottom:0}.switch input{width:21px;height:21px;min-height:0}.switch label{flex:1}.switch small{display:block;color:var(--muted)}
+    .dot-label{background:#07131fee!important;border:1px solid #fff!important;color:#fff!important;border-radius:6px!important;padding:2px 5px!important;font-weight:900!important;box-shadow:0 2px 7px #0007!important}.dot-label:before{display:none!important}.leaflet-popup-content-wrapper,.leaflet-popup-tip{background:#07131f;color:#fff}.leaflet-popup-content{margin:12px 14px;min-width:180px}.popupTitle{font-weight:900;font-size:15px}.popupMeta{color:#b9cfdd;font-size:12px;margin:3px 0 8px}.popupLink{display:inline-block;background:#1187e8;color:#fff!important;text-decoration:none;border-radius:8px;padding:7px 9px;font-weight:800}
+    #fatal{display:none;position:absolute;z-index:2000;inset:0;background:#07131f;padding:24px;color:#fff}#fatal.show{display:grid;place-items:center}#fatal .box{max-width:520px;background:#10283a;border:1px solid #35607a;border-radius:16px;padding:18px}#fatal a{color:#76c7ff}
+    @media(min-width:960px){.panel{left:auto;top:0;right:0;width:390px;max-height:none;height:100%;border-radius:0;transform:none}.panel.open{transform:none}.handle{display:none}.content{max-height:calc(100vh - 62px);padding-bottom:20px}.topbar{right:400px}.legend{right:400px}.mapActions{right:400px}.tabs{padding-top:8px}}
+  </style>
+</head>
+<body>
+<div id="app">
+  <div id="map" aria-label="Interactive Amsterdam point map"></div>
+  <div class="topbar">
+    <button id="menu" class="icon" aria-label="Open controls">☰</button>
+    <div class="status"><strong id="statusMain">Loading compatible map…</strong><span id="statusSub">Leaflet point renderer · no rectangles or lines</span></div>
+    <button id="gps" class="primary">Use GPS</button>
+  </div>
+  <div id="legend" class="legend"></div>
+  <div class="mapActions">
+    <button id="city" class="ghost">City</button>
+    <button id="centre" class="ghost">Centre</button>
+    <button id="addWp" class="ghost">+ Waypoint</button>
+  </div>
+  <aside id="panel" class="panel">
+    <div class="handle"></div>
+    <nav class="tabs">
+      <button class="active" data-view="explore">Explore</button><button data-view="layers">Layers</button><button data-view="routes">Routes</button><button data-view="hotel">Hotel</button><button data-view="display">Display</button>
+    </nav>
+    <div class="content">
+      <section id="view-explore" class="view active">
+        <div class="section"><h2>Search places</h2><label class="field"><span>Name, category, address or cuisine</span><input id="search" type="search" placeholder="Museum, pub, Thai, smartshop…"></label><div id="results" class="list"></div></div>
+      </section>
+      <section id="view-layers" class="view"><div class="section"><h2>Visible point types</h2><p>Every switch controls circle markers only.</p><div id="layerList"></div><button id="resetLayers" class="ghost">Reset layers</button></div></section>
+      <section id="view-routes" class="view"><div class="section"><h2>Waypoints</h2><p>Tap “+ Waypoint”, then tap the map. Routes open in Google Maps.</p><div class="row"><button id="routeAll" class="primary">Route all</button><button id="clearWp" class="danger">Clear</button></div><div id="wpList" class="list" style="margin-top:10px"></div></div></section>
+      <section id="view-hotel" class="view"><div class="section"><h2>Hotel/base</h2><div id="hotelCard" class="item"></div><div class="row" style="margin-top:10px"><button id="routeHotel" class="primary">Google route</button><button id="setHotel" class="ghost">Set by map tap</button></div><button id="resetHotel" class="ghost" style="margin-top:8px;width:100%">Reset default hotel</button></div></section>
+      <section id="view-display" class="view"><div class="section"><h2>Display</h2><label class="field"><span>Abstraction level</span><select id="abstraction"><option value="overview">Overview</option><option value="balanced" selected>Balanced</option><option value="detailed">Detailed</option></select></label><label class="switch"><input id="majorLabels" type="checkbox" checked><label for="majorLabels"><strong>Major labels</strong><small>Keep major landmark names visible.</small></label></label><button id="resetDisplay" class="ghost" style="margin-top:10px;width:100%">Reset display</button></div></section>
+    </div>
+  </aside>
+  <div id="fatal"><div class="box"><h1>Map unavailable</h1><p id="fatalText"></p><p><a href="https://www.openstreetmap.org/#map=13/52.3695/4.8890">Open Amsterdam in OpenStreetMap</a></p><p><a href="https://www.google.com/maps/search/?api=1&query=Amsterdam">Open Amsterdam in Google Maps</a></p></div></div>
+</div>
+<script>
+(async()=>{try{if('serviceWorker'in navigator){const regs=await navigator.serviceWorker.getRegistrations();await Promise.all(regs.map(r=>r.unregister()))}if('caches'in window){const names=await caches.keys();await Promise.all(names.map(n=>caches.delete(n)))}}catch(e){console.warn(e)}})();
+</script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script src="data.js?release=leaflet-points-v1"></script>
+<script>
+'use strict';
+(()=>{
+  const DATA=window.AMS_MAP_DATA;
+  const $=id=>document.getElementById(id);
+  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const load=(k,f)=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):f}catch{return f}};
+  const save=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch{}};
+  if(!window.L||!DATA){$('fatalText').textContent='Leaflet or map data failed to load.';$('fatal').classList.add('show');return}
+
+  const keys={layers:'ams-leaflet-layers-v1',hotel:'ams-leaflet-hotel-v1',waypoints:'ams-leaflet-waypoints-v1',display:'ams-leaflet-display-v1'};
+  const categoryById=new Map(DATA.categories.map(c=>[c.id,c]));
+  const defaults=Object.fromEntries(DATA.categories.map(c=>[c.id,c.defaultVisible]));
+  const state={layers:{...defaults,...load(keys.layers,{})},hotel:load(keys.hotel,DATA.defaultHotel),waypoints:load(keys.waypoints,[]),display:{abstraction:'balanced',majorLabels:true,...load(keys.display,{})},user:null,watch:null,mode:null,placeMarkers:new Map(),utilityMarkers:[]};
+
+  const map=L.map('map',{preferCanvas:true,zoomControl:true,attributionControl:true,markerZoomAnimation:false,fadeAnimation:false,zoomAnimation:false}).setView([DATA.centre[1],DATA.centre[0]],13);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,minZoom:2,updateWhenIdle:true,keepBuffer:4,attribution:'© OpenStreetMap contributors'}).addTo(map);
+  const placeGroup=L.layerGroup().addTo(map),utilityGroup=L.layerGroup().addTo(map);
+
+  function routeUrl(destination,waypoints=[]){const p=new URLSearchParams({api:'1',destination:`${destination.lat},${destination.lon}`,travelmode:'walking'});if(state.user)p.set('origin',`${state.user.lat},${state.user.lon}`);if(waypoints.length)p.set('waypoints',waypoints.map(w=>`${w.lat},${w.lon}`).join('|'));return `https://www.google.com/maps/dir/?${p}`}
+  function radius(place){const base=place.importance==='major'?9:place.importance==='minor'?7:5;if(state.display.abstraction==='overview')return Math.max(4,base-2);if(state.display.abstraction==='detailed')return base+2;return base}
+  function labelAllowed(place){return state.display.majorLabels&&place.importance==='major'||state.display.abstraction==='detailed'&&place.importance==='minor'}
+  function renderPlaces(){placeGroup.clearLayers();state.placeMarkers.clear();for(const p of DATA.places){if(!state.layers[p.category])continue;const c=categoryById.get(p.category);const m=L.circleMarker([p.lat,p.lon],{radius:radius(p),color:'#fff',weight:2,fillColor:c?.colour||'#333',fillOpacity:.96,opacity:1,interactive:true,bubblingMouseEvents:false});m.bindPopup(`<div class="popupTitle">${esc(p.name)}</div><div class="popupMeta">${esc(c?.label||p.category)}${p.address?` · ${esc(p.address)}`:''}</div><a class="popupLink" target="_blank" rel="noopener" href="${routeUrl(p)}">Google route</a>`);if(labelAllowed(p))m.bindTooltip(esc(p.name),{permanent:true,direction:'top',offset:[0,-8],className:'dot-label'});m.on('click',()=>showSelected(p));m.addTo(placeGroup);state.placeMarkers.set(p.id,m)}$('statusMain').textContent='Map ready';$('statusSub').textContent=`${state.placeMarkers.size} point markers · no rectangles or lines`}
+  function renderUtility(){utilityGroup.clearLayers();state.utilityMarkers=[];if(state.hotel){const h=L.circleMarker([state.hotel.lat,state.hotel.lon],{radius:10,color:'#fff',weight:3,fillColor:'#111',fillOpacity:1}).bindTooltip('H',{permanent:true,direction:'center',className:'dot-label'}).bindPopup(`<div class="popupTitle">${esc(state.hotel.name)}</div><a class="popupLink" target="_blank" href="${routeUrl(state.hotel)}">Google route</a>`).addTo(utilityGroup);state.utilityMarkers.push(h)}state.waypoints.forEach((w,i)=>{const m=L.circleMarker([w.lat,w.lon],{radius:8,color:'#fff',weight:2,fillColor:'#6a32c9',fillOpacity:1}).bindTooltip(String(i+1),{permanent:true,direction:'center',className:'dot-label'}).addTo(utilityGroup);state.utilityMarkers.push(m)});if(state.user){const u=L.circleMarker([state.user.lat,state.user.lon],{radius:8,color:'#fff',weight:3,fillColor:'#0c8dff',fillOpacity:1}).bindTooltip('You',{permanent:true,direction:'top',className:'dot-label'}).addTo(utilityGroup);state.utilityMarkers.push(u)}}
+  function showSelected(p){const q=$('search');q.value=p.name;renderResults(p.name);openPanel('explore')}
+  function renderLegend(){$('legend').innerHTML=DATA.categories.filter(c=>state.layers[c.id]).map(c=>`<span class="chip" style="background:${esc(c.colour)};color:${esc(c.text)}">${esc(c.short)}</span>`).join('')}
+  function renderLayers(){$('layerList').innerHTML=DATA.categories.map(c=>`<div class="switch"><input id="ly-${esc(c.id)}" type="checkbox" data-layer="${esc(c.id)}" ${state.layers[c.id]?'checked':''}><label for="ly-${esc(c.id)}"><strong>${esc(c.label)}</strong><small>${esc(c.short)} points</small></label></div>`).join('')}
+  function matches(p,q){const c=categoryById.get(p.category);return [p.name,p.address,p.cuisine,p.note,c?.label].join(' ').toLowerCase().includes(q)}
+  function resultItem(p){const c=categoryById.get(p.category);return `<div class="item"><strong>${esc(p.name)}</strong><div class="meta">${esc(c?.label||p.category)}${p.address?` · ${esc(p.address)}`:''}</div><div class="actions"><button data-focus="${esc(p.id)}">Show</button><a target="_blank" rel="noopener" href="${routeUrl(p)}">Route</a><button data-waypoint="${esc(p.id)}">+ Waypoint</button></div></div>`}
+  function renderResults(value=''){const q=value.trim().toLowerCase();const list=(q?DATA.places.filter(p=>matches(p,q)):DATA.places.filter(p=>p.importance==='major')).slice(0,18);$('results').innerHTML=list.map(resultItem).join('')||'<div class="item">No matching places.</div>'}
+  function renderHotel(){$('hotelCard').innerHTML=`<strong>${esc(state.hotel.name)}</strong><div class="meta">${esc(state.hotel.address||`${state.hotel.lat.toFixed(5)}, ${state.hotel.lon.toFixed(5)}`)}</div>`}
+  function renderWaypoints(){$('wpList').innerHTML=state.waypoints.map((w,i)=>`<div class="item"><strong>${i+1}. ${esc(w.name||'Map waypoint')}</strong><div class="meta">${w.lat.toFixed(5)}, ${w.lon.toFixed(5)}</div><div class="actions"><a target="_blank" href="${routeUrl(w)}">Route</a><button data-remove-wp="${i}">Remove</button></div></div>`).join('')||'<div class="item">No waypoints saved.</div>'}
+  function persist(){save(keys.layers,state.layers);save(keys.hotel,state.hotel);save(keys.waypoints,state.waypoints);save(keys.display,state.display)}
+  function openPanel(view){$('panel').classList.add('open');document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('active',b.dataset.view===view));document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id===`view-${view}`))}
+  function addWaypoint(lat,lon,name='Map waypoint'){if(state.waypoints.length>=8)state.waypoints.shift();state.waypoints.push({lat,lon,name});persist();renderWaypoints();renderUtility();$('statusSub').textContent=`Waypoint saved · ${state.waypoints.length}/8`}
+
+  $('menu').onclick=()=>{$('panel').classList.toggle('open')};document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>openPanel(b.dataset.view));
+  $('city').onclick=()=>map.setView([DATA.centre[1],DATA.centre[0]],12);$('centre').onclick=()=>map.setView([52.3695,4.889],15);
+  $('search').oninput=e=>renderResults(e.target.value);
+  $('results').onclick=e=>{const f=e.target.closest('[data-focus]');if(f){const p=DATA.places.find(x=>x.id===f.dataset.focus);const m=state.placeMarkers.get(p.id);map.setView([p.lat,p.lon],17);m?.openPopup()}const w=e.target.closest('[data-waypoint]');if(w){const p=DATA.places.find(x=>x.id===w.dataset.waypoint);addWaypoint(p.lat,p.lon,p.name)}};
+  $('layerList').onchange=e=>{if(!e.target.dataset.layer)return;state.layers[e.target.dataset.layer]=e.target.checked;persist();renderPlaces();renderLegend()};
+  $('resetLayers').onclick=()=>{state.layers={...defaults};persist();renderLayers();renderPlaces();renderLegend()};
+  $('addWp').onclick=()=>{state.mode='waypoint';$('statusMain').textContent='Tap map for waypoint';$('statusSub').textContent='Only a numbered point will be added';openPanel('routes')};
+  $('setHotel').onclick=()=>{state.mode='hotel';$('statusMain').textContent='Tap map for hotel';$('statusSub').textContent='Only one H point will be added'};
+  $('routeHotel').onclick=()=>window.open(routeUrl(state.hotel),'_blank','noopener');$('resetHotel').onclick=()=>{state.hotel=DATA.defaultHotel;persist();renderHotel();renderUtility()};
+  $('clearWp').onclick=()=>{state.waypoints=[];persist();renderWaypoints();renderUtility()};
+  $('routeAll').onclick=()=>{const stops=[...state.waypoints];if(!stops.length){window.open(routeUrl(state.hotel),'_blank','noopener');return}const destination=state.hotel||stops.pop();window.open(routeUrl(destination,stops),'_blank','noopener')};
+  $('wpList').onclick=e=>{const b=e.target.closest('[data-remove-wp]');if(!b)return;state.waypoints.splice(Number(b.dataset.removeWp),1);persist();renderWaypoints();renderUtility()};
+  $('abstraction').onchange=e=>{state.display.abstraction=e.target.value;persist();renderPlaces()};$('majorLabels').onchange=e=>{state.display.majorLabels=e.target.checked;persist();renderPlaces()};$('resetDisplay').onclick=()=>{state.display={abstraction:'balanced',majorLabels:true};$('abstraction').value='balanced';$('majorLabels').checked=true;persist();renderPlaces()};
+  $('gps').onclick=()=>{if(state.watch!==null){navigator.geolocation.clearWatch(state.watch);state.watch=null;$('gps').textContent='Use GPS';return}if(!navigator.geolocation){$('statusMain').textContent='GPS unavailable';return}$('statusMain').textContent='Requesting GPS…';state.watch=navigator.geolocation.watchPosition(pos=>{state.user={lat:pos.coords.latitude,lon:pos.coords.longitude,accuracy:pos.coords.accuracy};renderUtility();$('statusMain').textContent='GPS active';$('statusSub').textContent=`Accuracy about ${Math.round(pos.coords.accuracy)} m`;map.setView([state.user.lat,state.user.lon],16);$('gps').textContent='Stop GPS'},err=>{$('statusMain').textContent='GPS unavailable';$('statusSub').textContent=err.message},{enableHighAccuracy:true,maximumAge:5000,timeout:15000})};
+  map.on('click',e=>{if(state.mode==='waypoint'){addWaypoint(e.latlng.lat,e.latlng.lng);state.mode=null;$('statusMain').textContent='Map ready'}else if(state.mode==='hotel'){state.hotel={id:'custom-hotel',name:'My hotel/base',address:'Set from map',lat:e.latlng.lat,lon:e.latlng.lng};state.mode=null;persist();renderHotel();renderUtility();$('statusMain').textContent='Hotel set'}});
+
+  $('abstraction').value=state.display.abstraction;$('majorLabels').checked=state.display.majorLabels;renderLayers();renderLegend();renderResults();renderHotel();renderWaypoints();renderPlaces();renderUtility();setTimeout(()=>map.invalidateSize(),50);
+})();
+</script>
+</body>
+</html>
