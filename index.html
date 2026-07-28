@@ -8,9 +8,9 @@
 <meta http-equiv="Expires" content="0">
 <meta name="theme-color" content="#071727">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="application-name" content="Amsterdam Map V9">
-<title>Amsterdam Interactive Map — Clean Marker Reset V9</title>
-<link rel="stylesheet" href="android-v3.css?v=9-clean-reset">
+<meta name="application-name" content="Amsterdam Map V10">
+<title>Amsterdam Interactive Map — Frontage-Free Reset V10</title>
+<link rel="stylesheet" href="android-v3.css?v=10-frontage-free">
 </head>
 <body>
 <div id="app">
@@ -30,7 +30,7 @@
   <aside id="dock">
     <div id="head">
       <div>
-        <div id="status" aria-live="polite">Starting clean marker map…</div>
+        <div id="status" aria-live="polite">Starting frontage-free map…</div>
         <div class="metrics">
           <div class="metric"><span>Distance</span><strong id="distanceValue">0 m</strong></div>
           <div class="metric"><span>Accuracy</span><strong id="accuracyValue">—</strong></div>
@@ -57,7 +57,7 @@
         <button class="btn" id="pauseTrail">Pause trail</button>
         <button class="btn danger" id="clearTrail">Clear trail</button>
       </div>
-      <div class="card"><strong>Clean marker mode</strong><small>All places use compact markers. Red and blue information has been reset to one broad area marker per category, with no bricks or frontage geometry.</small></div>
+      <div class="card"><strong>Clean map reset</strong><small>The red-light and blue-light frontage layers are completely disabled in this build. All remaining locations use compact circular markers.</small></div>
       <div class="grid2">
         <button class="btn" id="cityView">City view</button>
         <button class="btn" id="wallenView">De Wallen</button>
@@ -99,15 +99,15 @@
   </div>
 </div>
 
-<script defer src="android-v3-data-1.js?v=9-clean-reset"></script>
-<script defer src="android-v3-data-2.js?v=9-clean-reset"></script>
-<script defer src="android-v3-data-3.js?v=9-clean-reset"></script>
-<script defer src="android-v3-data-4.js?v=9-clean-reset"></script>
-<script defer src="android-v3-app-1.js?v=9-clean-reset"></script>
-<script defer src="android-v3-app-2.js?v=9-clean-reset"></script>
-<script defer src="android-v3-app-3.js?v=9-clean-reset"></script>
-<script defer src="v9-clean-renderer.js?v=9-clean-reset"></script>
-<script defer src="android-v3-app-4.js?v=9-clean-reset"></script>
-<script defer src="android-v3-app-5.js?v=9-clean-reset"></script>
+<script defer src="android-v3-data-1.js?v=10-frontage-free"></script>
+<script defer src="android-v3-data-2.js?v=10-frontage-free"></script>
+<script defer src="android-v3-data-3.js?v=10-frontage-free"></script>
+<script defer src="android-v3-data-4.js?v=10-frontage-free"></script>
+<script defer src="android-v3-app-1.js?v=10-frontage-free"></script>
+<script defer src="android-v3-app-2.js?v=10-frontage-free"></script>
+<script defer src="android-v3-app-3.js?v=10-frontage-free"></script>
+<script defer src="android-v3-app-4.js?v=10-frontage-free"></script>
+<script defer src="v10-clean-renderer.js?v=10-frontage-free"></script>
+<script defer src="android-v3-app-5.js?v=10-frontage-free"></script>
 </body>
 </html>
