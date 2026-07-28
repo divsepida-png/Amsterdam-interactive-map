@@ -1,41 +1,40 @@
-# Amsterdam Interactive Map — Semantic Buildings V4
+# Amsterdam Frontage Map — Bottom-up rebuild
 
-A mobile-first Amsterdam visitor map designed for fast visual recognition on Android Chrome.
+A mobile-first Amsterdam map rebuilt from a blank rendering architecture.
 
-## Open the V4 release
+## Live site
 
-https://cdn.githubraw.com/divsepida-png/Amsterdam-interactive-map/384f4e2ff304aee1b2f598b152c4d1abc13b3395/index.html
+https://divsepida-png.github.io/Amsterdam-interactive-map/
 
-## Visual hierarchy
+## Rendering rules
 
-- 98 fixed-size semantic category badges remain visible throughout the permitted city zoom range
-- 15 major landmarks use enlarged badges and dominant abstract building plots
-- minor landmarks remain smaller but clearly visible
-- street zoom reveals address-centred coloured building plots
-- normal museums and galleries use cyan
-- activities and attractions use orange
-- parks, gardens and the zoo use green
-- markets and shopping activities use amber
-- historic and religious places use brown
-- strong-value cuisine uses yellow cuisine codes
-- cannabis coffeeshops use green C badges
-- smartshops use pink T badges
-- adult museums, shops and shows use distinct purple, magenta and orange 18+ badges
-- red-light and blue-light frontage references use thick high-contrast lines, repeated plot blocks and R/B badges
+- MapLibre GL JS provides a WebGL/GPU-rendered map.
+- All mapped places share one GeoJSON point source.
+- Places can only be rendered with `circle` and `symbol` layers.
+- No place layer uses polygons, building fills, frontage strips, repeated blocks, rectangles or route lines.
+- Major and smaller landmark dots are visible throughout the full zoom range while their switches are enabled.
+- Abstraction modes change label density and marker prominence without replacing point data with approximate areas.
 
-## Mobile architecture
+## User controls
 
-- Leaflet canvas overlays rather than WebGL
-- ordinary static HTML, CSS and JavaScript
-- no compressed bootstrap, runtime reconstruction, document rewriting or eval
-- zoom and tile-fade animations disabled
-- portrait bottom control dock and landscape side dock
-- fallback links to Google Maps and OpenStreetMap if both Leaflet mirrors fail
+- Toggle every place category independently.
+- Choose Overview, Balanced or Detailed abstraction.
+- Choose compact, standard or large markers.
+- Keep or suppress major landmark labels.
+- Set an active hotel by search, coordinates or map tap.
+- Save several hotels locally.
+- Add up to eight waypoints and open Google Maps to any one from the current location.
+- Open a multi-stop circuit that returns to the active hotel.
+- Choose walking, public transport, cycling or driving as the default Google Maps mode.
 
-## Verification
+## Performance
 
-The release was exercised in Android-sized Chromium portrait and landscape layouts using a Leaflet-compatible runtime harness. Tests confirmed 98 category badges, 15 enlarged major badges, all layer toggles, street-level labels, the mobile control layout, and no JavaScript errors. The full application script also passed `node --check`.
+- WebGL2 is requested with a high-performance GPU preference and a WebGL fallback.
+- Place markers are rendered from one GeoJSON source rather than many DOM elements.
+- Tile cache size is bounded.
+- The service worker caches only the application shell. OpenStreetMap tiles remain under the browser and provider cache headers.
+- Camera motion can be disabled.
 
-## Safety and map accuracy
+## Data and accuracy
 
-Adult and regulated venues are 18+. Coloured plots and frontage blocks are navigation abstractions centred on mapped addresses or frontage references; they are not cadastral surveys or a live record of occupied windows. Never photograph sex workers or their windows.
+The curated venue coordinates are compact point references placed at or near each mapped address/frontage. They are navigation aids, not cadastral surveys. Approximate red-light or blue-light area geometry is deliberately absent from this reset. Adult and regulated venues are 18+.
