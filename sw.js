@@ -1,13 +1,14 @@
 'use strict';
 
-const CACHE_NAME = 'ams-frontage-shell-v2';
+const CACHE_NAME = 'ams-frontage-shell-v4';
 const SHELL = [
-  './index.html?v=2',
-  './app.css?v=2',
-  './geometry-guard.js?v=2',
-  './data.js?v=2',
-  './app.js?v=2',
-  './manifest.webmanifest?v=2'
+  './index.html?v=4',
+  './app.css?v=4',
+  './maplibre-compat.js?v=4',
+  './geometry-guard.js?v=4',
+  './data.js?v=4',
+  './app.js?v=4',
+  './manifest.webmanifest?v=4'
 ];
 
 self.addEventListener('install', event => {
@@ -31,7 +32,6 @@ self.addEventListener('fetch', event => {
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
 
-  // OpenStreetMap tiles keep their provider/browser caching behaviour.
   if (url.hostname === 'tile.openstreetmap.org') return;
 
   if (request.mode === 'navigate') {
@@ -39,25 +39,27 @@ self.addEventListener('fetch', event => {
       fetch(request, {cache: 'no-store'})
         .then(response => {
           if (response?.ok) {
-            caches.open(CACHE_NAME).then(cache => cache.put('./index.html?v=2', response.clone()));
+            caches.open(CACHE_NAME).then(cache => cache.put('./index.html?v=4', response.clone()));
           }
           return response;
         })
-        .catch(() => caches.match('./index.html?v=2'))
+        .catch(() => caches.match('./index.html?v=4'))
     );
     return;
   }
 
   if (url.origin === self.location.origin) {
     event.respondWith(
-      fetch(request)
-        .then(response => {
-          if (response?.ok) {
-            caches.open(CACHE_NAME).then(cache => cache.put(request, response.clone()));
+      caches.match(request).then(cached => {
+        const network = fetch(request).then(response => {
+          if (response && response.ok) {
+            const copy = response.clone();
+            caches.open(CACHE_NAME).then(cache => cache.put(request, copy));
           }
           return response;
-        })
-        .catch(() => caches.match(request))
+        }).catch(() => cached);
+        return cached || network;
+      })
     );
   }
 });
